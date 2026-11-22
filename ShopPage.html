@@ -140,6 +140,7 @@
   .foot .link { color: #f0c9a8; cursor: pointer; }
   .foot .link:hover, .hero .tg-link:hover { text-decoration: underline; }
   .brand { white-space: nowrap; }
+  #tgCol { scroll-margin-top: 90px; }
   @media (max-width: 860px) { .foot { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 520px) { .foot { grid-template-columns: 1fr; } .tg-card { align-items: flex-start; } }
   @media (max-width: 520px) {
@@ -547,10 +548,10 @@
   // ─── Footer：Telegram QR code ─────────────────────────────────────
   // 頁面在 GAS 的 iframe 裡，又有 <base target="_top">：href="#…" 或 javascript: 連結會被當成
   // 導覽頂層視窗而失效（2026/11/22 手機版實測點了沒反應），所以用 JS 自己捲動，扣掉固定的 header 高度。
+  // GAS 的頁面包了兩層 iframe，真正在捲的不一定是這個 window（window.scrollTo 實測沒反應），
+  // scrollIntoView 會把每一層可捲動的祖先都捲到位；header 的高度由 CSS scroll-margin-top 扣掉。
   function scrollToTg() {
-    var el = $('tgCol'), header = document.querySelector('header');
-    var top = el.getBoundingClientRect().top + window.pageYOffset - (header ? header.offsetHeight + 12 : 0);
-    window.scrollTo({ top: top, behavior: 'smooth' });
+    $('tgCol').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   // bot 名稱由 doGet 從 Telegram getMe 取得；取不到就整區隱藏。
   // QR 由 qrcodejs 在瀏覽器產生；CDN 載不到時只留「開啟 Telegram」按鈕。
