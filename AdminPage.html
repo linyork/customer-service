@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: #f5f3ef; --paper: #fff; --ink: #24201c; --muted: #857b70; --line: #e6ddd0;
+    --accent: #b5562f; --blue: #2f5f9e; --ok: #2f7d4f; --warn: #b5562f; --soft: #f3ead9;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif; font-size: 14px; }
+  button, input, select, textarea { font: inherit; }
+  button { cursor: pointer; }
+
+  .login { max-width: 340px; margin: 14vh auto; background: var(--paper); padding: 28px; border-radius: 16px;
+           box-shadow: 0 6px 24px rgba(0,0,0,.08); }
+  .login h1 { margin: 0 0 16px; font-size: 20px; }
+  .field { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: #fff; }
+  .btn { border: 0; background: var(--ink); color: #fff; border-radius: 10px; padding: 9px 16px; }
+  .btn.accent { background: var(--accent); }
+  .btn.blue { background: var(--blue); }
+  .btn.ghost { background: none; color: var(--ink); border: 1px solid var(--line); }
+  .btn.sm { padding: 5px 10px; font-size: 13px; }
+  .err { color: #8c3418; margin-top: 10px; }
+
+  header { background: var(--ink); color: #fff; }
+  .bar { max-width: 1280px; margin: 0 auto; display: flex; align-items: center; gap: 4px; padding: 0 16px; overflow-x: auto; }
+  .bar .brand { font-weight: 800; margin-right: 16px; white-space: nowrap; padding: 14px 0; }
+  .tab { background: none; border: 0; color: rgba(255,255,255,.7); padding: 14px 12px; white-space: nowrap; border-bottom: 3px solid transparent; }
+  .tab.on { color: #fff; border-bottom-color: var(--accent); }
+  .tab .badge { background: var(--accent); color: #fff; border-radius: 999px; padding: 0 6px; font-size: 11px; margin-left: 4px; }
+  .bar .spacer { flex: 1; }
+  .bar a { color: rgba(255,255,255,.7); text-decoration: none; white-space: nowrap; font-size: 13px; }
+
+  main { max-width: 1280px; margin: 0 auto; padding: 20px 16px 60px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+  .stat { background: var(--paper); border-radius: 14px; padding: 16px; }
+  .stat .k { color: var(--muted); font-size: 13px; }
+  .stat .v { font-size: 26px; font-weight: 800; margin-top: 4px; }
+  .panel { background: var(--paper); border-radius: 14px; padding: 16px; margin-top: 16px; }
+  .panel h2 { font-size: 16px; margin: 0 0 10px; }
+  .muted { color: var(--muted); }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: 13px; white-space: nowrap; }
+  .table-wrap { overflow-x: auto; }
+  td input.num { width: 80px; border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; }
+  .pill { display: inline-block; border-radius: 999px; padding: 1px 9px; font-size: 12px; background: var(--soft); white-space: nowrap; }
+  .pill.human { background: #fbe1d6; color: #8c3418; }
+  .pill.ai { background: #e2ecf8; color: var(--blue); }
+  .pill.tg { background: #def0fb; color: #1b6b98; }
+  .pill.web { background: #efe6d6; color: #7a5a2b; }
+  .low { color: var(--warn); font-weight: 700; }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+
+  /* 對話 */
+  .inbox { display: grid; grid-template-columns: 320px 1fr; gap: 14px; height: calc(100vh - 140px); min-height: 480px; }
+  .list { background: var(--paper); border-radius: 14px; overflow-y: auto; }
+  .item { padding: 12px 14px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .item:hover, .item.on { background: var(--soft); }
+  .item .top { display: flex; gap: 6px; align-items: center; }
+  .item .name { font-weight: 700; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .pv { color: var(--muted); font-size: 13px; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .unread { background: var(--accent); color: #fff; border-radius: 999px; font-size: 11px; padding: 0 6px; }
+  .thread { background: var(--paper); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; }
+  .thread-h { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .thread-h .who { font-weight: 700; flex: 1; }
+  .thread-b { flex: 1; overflow-y: auto; padding: 16px; background: var(--bg); display: flex; flex-direction: column; gap: 8px; }
+  .b { max-width: 75%; padding: 8px 12px; border-radius: 12px; white-space: pre-wrap; word-break: break-word; line-height: 1.5; }
+  .b small { display: block; font-size: 11px; opacity: .6; margin-bottom: 2px; }
+  .b.user { align-self: flex-start; background: var(--paper); border: 1px solid var(--line); }
+  .b.assistant, .b.system { align-self: flex-end; background: #e9e4dc; }
+  .b.staff { align-self: flex-end; background: var(--blue); color: #fff; }
+  .b.sys { align-self: center; background: none; color: var(--muted); font-size: 12px; }
+  .orders-mini { padding: 8px 16px; border-top: 1px solid var(--line); font-size: 13px; max-height: 110px; overflow-y: auto; }
+  .thread-f { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--line); }
+  .thread-f textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+  .placeholder { margin: auto; color: var(--muted); }
+  @media (max-width: 760px) {
+    .inbox { grid-template-columns: 1fr; height: auto; }
+    .list { max-height: 260px; }
+    .thread { height: 70vh; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+  var API_URL = <?!= JSON.stringify(apiUrl) ?>;
+  var SHOP = <?!= JSON.stringify(shopName) ?>;
+
+  function api(action, data) {
+    var body = Object.assign({ source: 'web', action: action, token: token }, data || {});
+    return fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .catch(function () {
+        return new Promise(function (resolve, reject) {
+          if (!(window.google && google.script && google.script.run)) return reject(new Error('無法連線'));
+          google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).webApi(body);
+        });
+      })
+      .then(function (r) {
+        if (r && !r.ok && r.error === 'AUTH') { logout(); throw new Error('登入逾時，請重新登入'); }
+        return r;
+      });
+  }
+
+  var token = null;
+  try { token = sessionStorage.getItem('adminToken'); } catch (e) {}
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var money = function (n) { return 'NT$' + Number(n || 0).toLocaleString('en-US'); };
+  var tab = 'dash', currentSession = null, pollTimer = null;
+
+  // ─── 登入 ───────────────────────────────────────────────────────
+  function showLogin(msg) {
+    clearInterval(pollTimer);
+    $('app').innerHTML = '<form class="login" onsubmit="doLogin(event)"><h1>🔐 ' + esc(SHOP) + ' 後台</h1>' +
+      '<input class="field" type="password" id="pw" placeholder="管理密碼" autofocus>' +
+      '<button class="btn accent" style="width:100%;margin-top:12px">登入</button>' +
+      (msg ? '<div class="err">' + esc(msg) + '</div>' : '') + '</form>';
+  }
+  function doLogin(ev) {
+    ev.preventDefault();
+    api('login', { password: $('pw').value }).then(function (r) {
+      if (!r.ok) return showLogin(r.error);
+      token = r.token; try { sessionStorage.setItem('adminToken', token); } catch (e) {}
+      showShell();
+    }).catch(function (e) { showLogin(e.message); });
+  }
+  function logout() { token = null; try { sessionStorage.removeItem('adminToken'); } catch (e) {} showLogin(); }
+
+  // ─── 外框 ───────────────────────────────────────────────────────
+  function showShell() {
+    $('app').innerHTML = '<header><div class="bar"><span class="brand">📚 ' + esc(SHOP) + '・後台</span>' +
+      '<button class="tab" data-t="dash" onclick="go(\'dash\')">總覽</button>' +
+      '<button class="tab" data-t="chat" onclick="go(\'chat\')">客服對話<span class="badge" id="unreadBadge" style="display:none"></span></button>' +
+      '<button class="tab" data-t="orders" onclick="go(\'orders\')">訂單</button>' +
+      '<button class="tab" data-t="products" onclick="go(\'products\')">商品庫存</button>' +
+      '<span class="spacer"></span><a href="' + esc(API_URL) + '" target="_blank">前往商店 ↗</a>' +
+      '<button class="tab" onclick="logout()">登出</button></div></header><main id="main"></main>';
+    go(tab);
+  }
+  function go(t) {
+    tab = t; clearInterval(pollTimer);
+    document.querySelectorAll('.tab[data-t]').forEach(function (b) { b.classList.toggle('on', b.dataset.t === t); });
+    $('main').innerHTML = '<p class="muted">載入中…</p>';
+    ({ dash: loadDash, chat: loadChat, orders: loadOrders, products: loadProducts })[t]();
+  }
+  function fail(e) { $('main').innerHTML = '<p class="err">' + esc(e.message || e) + '</p>'; }
+
+  // ─── 總覽 ───────────────────────────────────────────────────────
+  function loadDash() {
+    api('dashboard').then(function (r) {
+      if (!r.ok) throw new Error(r.error);
+      var s = r.stats;
+      var card = function (k, v, hint) { return '<div class="stat"><div class="k">' + k + '</div><div class="v">' + v + '</div>' + (hint ? '<div class="muted">' + hint + '</div>' : '') + '</div>'; };
+      $('main').innerHTML = '<div class="stats">' +
+        card('今日訂單', s.todayOrders) + card('今日營收', money(s.todayRevenue)) +
+        card('待處理訂單', s.pendingOrders, '待付款＋待出貨') + card('低庫存書籍', s.lowStock, '庫存 ≤ 3') +
+        card('真人客服中', s.humanSessions) + card('未讀訊息', s.unread) + card('客人總數', s.totalSessions) +
+        '</div><div class="panel"><h2>Demo 說明</h2><p class="muted">客人可從 Telegram bot 或商店頁右下角的對話框詢問 AI 客服；AI 會用工具查庫存、建立訂單、查詢／取消訂單，' +
+        '必要時轉接真人。轉接後的對話會出現在「客服對話」，店員可直接回覆，Telegram 客人會即時收到。</p></div>';
+      setUnread(s.unread);
+    }).catch(fail);
+  }
+  function setUnread(n) { var b = $('unreadBadge'); if (b) { b.textContent = n; b.style.display = n ? '' : 'none'; } }
+
+  // ─── 客服對話 ───────────────────────────────────────────────────
+  function loadChat() {
+    $('main').innerHTML = '<div class="inbox"><div class="list" id="list"></div><div class="thread" id="thread"><div class="placeholder">選擇左側的對話</div></div></div>';
+    refreshList();
+    if (currentSession) openSession(currentSession);
+    pollTimer = setInterval(function () { refreshList(); if (currentSession) openSession(currentSession, true); }, 8000);
+  }
+  function refreshList() {
+    api('sessions').then(function (r) {
+      if (!r.ok || !$('list')) return;
+      setUnread(r.sessions.reduce(function (s, x) { return s + x.unread; }, 0));
+      $('list').innerHTML = r.sessions.length ? r.sessions.map(function (s) {
+        return '<div class="item' + (s.session_id === currentSession ? ' on' : '') + '" onclick="openSession(\'' + esc(s.session_id) + '\')">' +
+          '<div class="top"><span class="pill ' + (s.channel === 'telegram' ? 'tg">TG' : 'web">網頁') + '</span>' +
+          '<span class="name">' + esc(s.display_name || s.session_id) + '</span>' +
+          (s.mode === 'human' ? '<span class="pill human">真人</span>' : '') +
+          (s.unread ? '<span class="unread">' + s.unread + '</span>' : '') + '</div>' +
+          '<div class="pv">' + esc(s.preview) + '</div><div class="pv">' + esc(s.last_message_at) + '</div></div>';
+      }).join('') : '<p class="muted" style="padding:14px">還沒有客人來訪</p>';
+    });
+  }
+  function openSession(id, silent) {
+    currentSession = id;
+    api('messages', { sessionId: id }).then(function (r) {
+      if (!r.ok || !$('thread') || currentSession !== id) return;
+      var s = r.session || { mode: 'ai', display_name: id, channel: '' };
+      var keepDraft = $('replyBox') ? $('replyBox').value : '';
+      var body = $('threadBody');
+      var atBottom = !body || body.scrollHeight - body.scrollTop - body.clientHeight < 40;
+      var label = { user: '客人', assistant: 'AI 客服', staff: '真人客服', system: '系統' };
+      $('thread').innerHTML = '<div class="thread-h"><span class="who">' + esc(s.display_name || id) + ' <span class="muted">' + esc(id) + '</span></span>' +
+        '<span class="pill ' + (s.mode === 'human' ? 'human">真人模式' : 'ai">AI 模式') + '</span>' +
+        (s.mode === 'human'
+          ? '<button class="btn sm ghost" onclick="setMode(\'ai\')">交回 AI</button>'
+          : '<button class="btn sm blue" onclick="setMode(\'human\')">真人接手</button>') + '</div>' +
+        '<div class="thread-b" id="threadBody">' + r.messages.map(function (m) {
+          if (m.role === 'system' && /^(真人客服接手|切回 AI 客服)$/.test(m.content)) return '<div class="b sys">— ' + esc(m.content) + ' —</div>';
+          return '<div class="b ' + m.role + '"><small>' + label[m.role] + '・' + esc(m.timestamp) + '</small>' + esc(m.content) + '</div>';
+        }).join('') + '</div>' +
+        (r.orders.length ? '<div class="orders-mini"><b>此客人的訂單：</b>' + r.orders.map(function (o) {
+          return '<div>' + esc(o.order_id) + '・' + esc(o.status) + '・' + money(o.total) + '</div>'; }).join('') + '</div>' : '') +
+        '<form class="thread-f" onsubmit="sendReply(event)"><textarea id="replyBox" rows="2" placeholder="以真人客服身分回覆（Enter 送出，Shift+Enter 換行）"></textarea>' +
+        '<button class="btn accent">送出</button></form>';
+      $('replyBox').value = keepDraft;
+      $('replyBox').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) sendReply(e); });
+      if (atBottom || !silent) $('threadBody').scrollTop = $('threadBody').scrollHeight;
+      if (!silent) refreshList();
+    });
+  }
+  function sendReply(ev) {
+    ev.preventDefault();
+    var text = $('replyBox').value.trim();
+    if (!text) return;
+    $('replyBox').value = '';
+    api('reply', { sessionId: currentSession, text: text }).then(function (r) {
+      if (!r.ok) alert(r.error); openSession(currentSession);
+    });
+  }
+  function setMode(mode) {
+    api('setMode', { sessionId: currentSession, mode: mode }).then(function () { openSession(currentSession); });
+  }
+
+  // ─── 訂單 ───────────────────────────────────────────────────────
+  var orderData = null, orderFilter = '';
+  function loadOrders() {
+    api('orders').then(function (r) { if (!r.ok) throw new Error(r.error); orderData = r; renderOrders(); }).catch(fail);
+  }
+  function renderOrders() {
+    var r = orderData;
+    var list = r.orders.filter(function (o) { return !orderFilter || o.status === orderFilter; });
+    $('main').innerHTML = '<div class="filters">' + [''].concat(r.statuses).map(function (s) {
+        return '<button class="btn sm ' + (s === orderFilter ? '' : 'ghost') + '" onclick="orderFilter=\'' + s + '\';renderOrders()">' + (s || '全部') + '</button>';
+      }).join('') + '</div><div class="panel table-wrap"><table><tr><th>訂單編號</th><th>時間</th><th>來源</th><th>收件人</th><th>內容</th><th>金額</th><th>付款</th><th>狀態</th></tr>' +
+      (list.length ? list.map(function (o) {
+        return '<tr><td><b>' + esc(o.order_id) + '</b></td><td class="muted">' + esc(o.created_at) + '</td>' +
+          '<td><span class="pill ' + (o.channel === 'telegram' ? 'tg' : 'web') + '">' + esc(o.channel) + '</span></td>' +
+          '<td>' + esc(o.customer_name) + '<div class="muted">' + esc(o.phone) + '</div><div class="muted">' + esc(o.address) + '</div>' +
+          (o.note ? '<div class="muted">備註：' + esc(o.note) + '</div>' : '') + '</td>' +
+          '<td>' + o.items.map(function (i) { return esc(i.title) + ' ×' + i.qty; }).join('<br>') + '</td>' +
+          '<td>' + money(o.total) + '</td><td>' + esc(o.payment) + '</td>' +
+          '<td><select onchange="setStatus(\'' + esc(o.order_id) + '\', this)">' + r.statuses.map(function (s) {
+            return '<option' + (s === o.status ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></td></tr>';
+      }).join('') : '<tr><td colspan="8" class="muted">沒有訂單</td></tr>') + '</table></div>';
+  }
+  function setStatus(id, sel) {
+    var prev = orderData.orders.find(function (o) { return o.order_id === id; }).status;
+    sel.disabled = true;
+    api('setOrderStatus', { order_id: id, status: sel.value }).then(function (r) {
+      if (!r.ok) { alert(r.error); sel.value = prev; sel.disabled = false; return; }
+      loadOrders();
+    });
+  }
+
+  // ─── 商品庫存 ───────────────────────────────────────────────────
+  function loadProducts() {
+    api('products').then(function (r) {
+      if (!r.ok) throw new Error(r.error);
+      $('main').innerHTML = '<div class="panel table-wrap"><table><tr><th>編號</th><th>書名</th><th>作者</th><th>分類</th><th>價格</th><th>庫存</th><th>上架</th><th></th></tr>' +
+        r.products.map(function (p) {
+          return '<tr id="row_' + esc(p.id) + '"><td>' + esc(p.id) + '</td><td><b>' + esc(p.title) + '</b></td><td>' + esc(p.author) + '</td><td>' + esc(p.category) + '</td>' +
+            '<td><input class="num" type="number" min="0" value="' + p.price + '" data-k="price"></td>' +
+            '<td><input class="num" type="number" min="0" step="1" value="' + p.stock + '" data-k="stock">' + (p.stock <= 3 ? ' <span class="low">低</span>' : '') + '</td>' +
+            '<td><input type="checkbox" data-k="active"' + (p.active ? ' checked' : '') + '></td>' +
+            '<td><button class="btn sm" onclick="saveProduct(\'' + esc(p.id) + '\', this)">儲存</button></td></tr>';
+        }).join('') + '</table></div><p class="muted">修改後按「儲存」。庫存會隨訂單成立自動扣除、取消時自動回補。</p>';
+    }).catch(fail);
+  }
+  function saveProduct(id, btn) {
+    var row = $('row_' + id), changes = {};
+    row.querySelectorAll('[data-k]').forEach(function (el) { changes[el.dataset.k] = el.type === 'checkbox' ? el.checked : el.value; });
+    btn.disabled = true; btn.textContent = '儲存中…';
+    api('updateProduct', { id: id, changes: changes }).then(function (r) {
+      btn.disabled = false; btn.textContent = r.ok ? '已儲存 ✓' : '儲存';
+      if (!r.ok) alert(r.error);
+    });
+  }
+
+  if (token) showShell(); else showLogin();
+</script>
+</body>
+</html>

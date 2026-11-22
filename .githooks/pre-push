@@ -1,0 +1,53 @@
+#!/bin/sh
+
+# pre-push hook：推送到 main 時先跑測試，通過才 clasp push + clasp deploy。
+#
+# 這支檔案進版控；啟用方式（每個 clone 一次）：git config core.hooksPath .githooks
+#
+# ⚠️ 測試與 clasp push 讀的都是**工作目錄**，不是要推的那個 commit。
+#    有未提交的改動時，推上 GitHub 的 commit 跟部署的程式會不一樣。推之前先 commit 乾淨。
+
+zero_commit="0000000000000000000000000000000000000000"
+repo_root=$(git rev-parse --show-toplevel)
+
+# 部署 ID 讀 Config.gs，只寫在一個地方
+deployment_id=$(grep -o "DEPLOYMENT_ID: *'[^']*'" "$repo_root/Config.gs" | sed "s/.*'\(.*\)'/\1/")
+
+while read local_ref local_sha remote_ref remote_sha
+do
+    if [ "$local_ref" = "refs/heads/main" ]; then
+        if [ "$local_sha" = "$zero_commit" ]; then
+            continue
+        fi
+
+        echo "----------------------------------------------------"
+        echo "🧪 推送到 main，先跑測試..."
+        echo "----------------------------------------------------"
+
+        node "$repo_root/tests/run.cjs" > "$repo_root/.test_output.log" 2>&1
+        if [ $? -ne 0 ]; then
+            grep -E "✗|項失敗|Error" "$repo_root/.test_output.log" | head -40
+            echo "❌ 測試失敗，取消推送與部署。完整輸出：.test_output.log"
+            exit 1
+        fi
+        tail -1 "$repo_root/.test_output.log"
+        rm -f "$repo_root/.test_output.log"
+
+        if [ -z "$deployment_id" ]; then
+            echo "❌ 讀不到 Config.gs 的 DEPLOYMENT_ID，取消推送。"
+            exit 1
+        fi
+
+        echo "🔄 clasp push..."
+        (cd "$repo_root" && clasp push --force) || { echo "❌ clasp push 失敗"; exit 1; }
+
+        echo "🔄 clasp deploy -i $deployment_id ..."
+        (cd "$repo_root" && clasp deploy -i "$deployment_id" --description "$(git log -1 --format=%s)") \
+            || { echo "❌ clasp deploy 失敗"; exit 1; }
+
+        echo "✅ 部署完成，網址不變。"
+        echo "----------------------------------------------------"
+    fi
+done
+
+exit 0

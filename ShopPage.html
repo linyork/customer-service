@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: #faf6ef; --paper: #ffffff; --ink: #2b2420; --muted: #8a7f74; --line: #eadfce;
+    --accent: #b5562f; --accent-ink: #ffffff; --soft: #f3ead9; --ok: #2f7d4f; --warn: #b5562f;
+    --shadow: 0 6px 24px rgba(60, 40, 20, .10);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif; }
+  button { font: inherit; cursor: pointer; }
+  input, textarea, select { font: inherit; }
+
+  header { position: sticky; top: 0; z-index: 10; background: rgba(250,246,239,.94); backdrop-filter: blur(6px);
+           border-bottom: 1px solid var(--line); }
+  .bar { max-width: 1100px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+  .brand { font-weight: 800; font-size: 20px; letter-spacing: 1px; }
+  .brand small { display: block; font-weight: 400; font-size: 12px; color: var(--muted); letter-spacing: 0; }
+  .spacer { flex: 1; }
+  .icon-btn { border: 1px solid var(--line); background: var(--paper); border-radius: 999px; padding: 8px 14px;
+              display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .badge { background: var(--accent); color: var(--accent-ink); border-radius: 999px; font-size: 12px;
+           min-width: 20px; padding: 1px 6px; text-align: center; }
+
+  .hero { max-width: 1100px; margin: 0 auto; padding: 28px 16px 8px; }
+  .hero h1 { margin: 0 0 6px; font-size: 26px; }
+  .hero p { margin: 0; color: var(--muted); }
+  .tools { max-width: 1100px; margin: 0 auto; padding: 16px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .search { flex: 1 1 220px; border: 1px solid var(--line); border-radius: 999px; padding: 10px 16px; background: var(--paper); }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { border: 1px solid var(--line); background: var(--paper); border-radius: 999px; padding: 6px 14px; font-size: 14px; }
+  .chip.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .grid { max-width: 1100px; margin: 0 auto; padding: 0 16px 120px; display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 18px; }
+  .card { background: var(--paper); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow);
+          display: flex; flex-direction: column; }
+  .cover { aspect-ratio: 3 / 4; display: flex; flex-direction: column; justify-content: space-between;
+           padding: 18px 16px; color: #fff; position: relative; cursor: pointer; }
+  .cover::before { content: ""; position: absolute; left: 10px; top: 0; bottom: 0; width: 3px; background: rgba(255,255,255,.25); }
+  .cover .t { font-size: 19px; font-weight: 800; line-height: 1.35; }
+  .cover .a { font-size: 13px; opacity: .85; }
+  .meta { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .cat { font-size: 12px; color: var(--muted); }
+  .price-row { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
+  .price { font-weight: 800; color: var(--accent); }
+  .add { border: 0; background: var(--ink); color: #fff; border-radius: 999px; padding: 6px 14px; font-size: 14px; }
+  .add[disabled] { background: #c9bfb3; cursor: not-allowed; }
+  .stock { font-size: 12px; color: var(--muted); }
+  .stock.low { color: var(--warn); }
+
+  .overlay { position: fixed; inset: 0; background: rgba(30,20,10,.45); display: none; z-index: 30; }
+  .overlay.on { display: block; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 100%); background: var(--paper);
+            z-index: 31; transform: translateX(100%); transition: transform .25s ease; display: flex; flex-direction: column; }
+  .drawer.on { transform: none; }
+  .drawer-h { padding: 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; }
+  .drawer-h h2 { margin: 0; font-size: 18px; flex: 1; }
+  .x { border: 0; background: none; font-size: 22px; line-height: 1; color: var(--muted); }
+  .drawer-b { padding: 16px; overflow-y: auto; flex: 1; }
+  .drawer-f { padding: 16px; border-top: 1px solid var(--line); }
+  .line { display: flex; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px dashed var(--line); }
+  .mini { width: 40px; height: 54px; border-radius: 4px; flex: none; }
+  .line .info { flex: 1; min-width: 0; }
+  .line .info b { display: block; font-size: 14px; }
+  .qty { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 999px; }
+  .qty button { border: 0; background: none; width: 28px; height: 28px; }
+  .sum { display: flex; justify-content: space-between; margin: 4px 0; color: var(--muted); }
+  .sum.total { color: var(--ink); font-weight: 800; font-size: 18px; }
+  .primary { width: 100%; border: 0; background: var(--accent); color: var(--accent-ink); border-radius: 12px;
+             padding: 12px; font-weight: 700; margin-top: 10px; }
+  .primary[disabled] { opacity: .5; cursor: not-allowed; }
+  .ghost { width: 100%; border: 1px solid var(--line); background: none; border-radius: 12px; padding: 10px; margin-top: 8px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+  .field { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: #fff; }
+  .radio { display: flex; gap: 8px; }
+  .radio label { flex: 1; margin: 0; border: 1px solid var(--line); border-radius: 10px; padding: 10px; color: var(--ink);
+                 display: flex; gap: 6px; align-items: center; cursor: pointer; }
+  .msg { padding: 10px 12px; border-radius: 10px; margin-top: 10px; font-size: 14px; }
+  .msg.err { background: #fbe9e3; color: #8c3418; }
+  .msg.ok { background: #e5f3ea; color: var(--ok); }
+  .empty { color: var(--muted); text-align: center; padding: 40px 0; }
+  pre.order { white-space: pre-wrap; background: var(--soft); padding: 12px; border-radius: 10px; font-family: inherit; font-size: 14px; }
+
+  .modal { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, calc(100% - 32px));
+           max-height: calc(100% - 32px); overflow-y: auto; background: var(--paper); border-radius: 16px; z-index: 31;
+           display: none; box-shadow: var(--shadow); }
+  .modal.on { display: block; }
+  .modal-body { display: flex; gap: 18px; padding: 20px; flex-wrap: wrap; }
+  .modal .cover { width: 150px; flex: none; cursor: default; border-radius: 6px; }
+  .modal .desc { flex: 1 1 220px; }
+  .modal h3 { margin: 0 0 4px; }
+
+  /* 對話框 */
+  .chat-fab { position: fixed; right: 20px; bottom: 20px; z-index: 20; border: 0; background: var(--accent); color: #fff;
+              border-radius: 999px; padding: 14px 20px; box-shadow: var(--shadow); font-weight: 700; }
+  .chat { position: fixed; right: 20px; bottom: 20px; width: min(380px, calc(100% - 24px)); height: min(560px, calc(100% - 40px));
+          background: var(--paper); border-radius: 18px; box-shadow: 0 12px 40px rgba(60,40,20,.25); z-index: 25;
+          display: none; flex-direction: column; overflow: hidden; }
+  .chat.on { display: flex; }
+  .chat-h { background: var(--ink); color: #fff; padding: 14px 16px; display: flex; align-items: center; gap: 10px; }
+  .chat-h .x { color: #fff; }
+  .chat-h .who { flex: 1; }
+  .chat-h .who small { display: block; opacity: .7; font-size: 12px; }
+  .chat-b { flex: 1; overflow-y: auto; padding: 14px; background: var(--bg); display: flex; flex-direction: column; gap: 8px; }
+  .bubble { max-width: 82%; padding: 9px 13px; border-radius: 14px; font-size: 14px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+  .bubble.user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+  .bubble.bot { align-self: flex-start; background: var(--paper); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+  .bubble.staff { align-self: flex-start; background: #e8f0fb; border: 1px solid #c9daf3; border-bottom-left-radius: 4px; }
+  .bubble.sys { align-self: center; background: none; color: var(--muted); font-size: 12px; }
+  .typing { align-self: flex-start; color: var(--muted); font-size: 13px; }
+  .quick { display: flex; gap: 6px; padding: 8px 12px 0; flex-wrap: wrap; background: var(--paper); }
+  .quick button { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 4px 10px; font-size: 13px; }
+  .chat-f { display: flex; gap: 8px; padding: 10px 12px 12px; background: var(--paper); }
+  .chat-f input { flex: 1; border: 1px solid var(--line); border-radius: 999px; padding: 10px 14px; }
+  .chat-f button { border: 0; background: var(--accent); color: #fff; border-radius: 999px; padding: 0 16px; }
+
+  .toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); background: var(--ink); color: #fff;
+           padding: 10px 18px; border-radius: 999px; z-index: 50; font-size: 14px; display: none; }
+  footer { text-align: center; color: var(--muted); font-size: 12px; padding: 0 16px 100px; }
+  @media (max-width: 520px) {
+    .grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .cover .t { font-size: 16px; }
+    .brand small { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="brand">📚 <?= shopName ?><small><?= slogan ?></small></div>
+    <div class="spacer"></div>
+    <button class="icon-btn" onclick="openLookup()">🔎 查訂單</button>
+    <button class="icon-btn" onclick="openCart()">🛒 <span class="badge" id="cartCount">0</span></button>
+  </div>
+</header>
+
+<section class="hero">
+  <h1>今天想讀點什麼？</h1>
+  <p>滿 NT$<?= freeShipping ?> 免運・有問題隨時點右下角問 AI 客服小拾</p>
+</section>
+
+<div class="tools">
+  <input class="search" id="q" placeholder="搜尋書名、作者、關鍵字…" oninput="render()">
+  <div class="chips" id="chips"></div>
+</div>
+
+<main class="grid" id="grid"><div class="empty">載入中…</div></main>
+<footer>此為 AI 導入示範網站，書目皆為虛構，不會真的出貨。</footer>
+
+<div class="overlay" id="overlay" onclick="closeAll()"></div>
+
+<!-- 商品詳情 -->
+<div class="modal" id="detail"></div>
+
+<!-- 購物車／結帳 -->
+<aside class="drawer" id="cart">
+  <div class="drawer-h"><h2 id="cartTitle">購物車</h2><button class="x" onclick="closeAll()">×</button></div>
+  <div class="drawer-b" id="cartBody"></div>
+  <div class="drawer-f" id="cartFoot"></div>
+</aside>
+
+<!-- 查訂單 -->
+<aside class="drawer" id="lookup">
+  <div class="drawer-h"><h2>查詢訂單</h2><button class="x" onclick="closeAll()">×</button></div>
+  <div class="drawer-b">
+    <div id="myOrders"></div>
+    <label>訂單編號</label><input class="field" id="lkId" placeholder="BK2026…">
+    <label>下單時填寫的手機</label><input class="field" id="lkPhone" placeholder="09xxxxxxxx">
+    <button class="primary" onclick="doLookup()">查詢</button>
+    <div id="lkResult"></div>
+  </div>
+</aside>
+
+<!-- AI 客服對話框 -->
+<button class="chat-fab" id="chatFab" onclick="openChat()">💬 問問小拾</button>
+<section class="chat" id="chat">
+  <div class="chat-h">
+    <div class="who">AI 客服小拾<small id="chatMode">AI 自動回覆・24 小時在線</small></div>
+    <button class="x" onclick="closeChat()">×</button>
+  </div>
+  <div class="chat-b" id="chatBody"></div>
+  <div class="quick" id="quick">
+    <button onclick="quickAsk('有推薦的推理小說嗎？')">推薦推理小說</button>
+    <button onclick="quickAsk('運費怎麼算？')">運費怎麼算</button>
+    <button onclick="quickAsk('我要查訂單')">查訂單</button>
+    <button onclick="quickAsk('/human')">轉真人</button>
+  </div>
+  <form class="chat-f" onsubmit="sendChat(event)">
+    <input id="chatInput" placeholder="輸入訊息…" autocomplete="off" maxlength="500">
+    <button type="submit">送出</button>
+  </form>
+</section>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  var API_URL = <?!= JSON.stringify(apiUrl) ?>;
+  var SHIPPING_FEE = <?!= JSON.stringify(shippingFee) ?>;
+  var FREE_SHIPPING = <?!= JSON.stringify(freeShipping) ?>;
+
+  // ─── API：優先 fetch POST 到 doPost；被瀏覽器擋下就改走 google.script.run ─────
+  function api(action, data) {
+    var body = Object.assign({ source: 'web', action: action }, data || {});
+    return fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: JSON.stringify(body), redirect: 'follow' })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .catch(function () {
+        return new Promise(function (resolve, reject) {
+          if (!(window.google && google.script && google.script.run)) return reject(new Error('無法連線'));
+          google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).webApi(body);
+        });
+      });
+  }
+
+  // ─── 本機儲存（無痕模式可能不能用，一律包 try） ──────────────────────
+  function store(key, val) {
+    try {
+      if (val === undefined) return JSON.parse(localStorage.getItem(key) || 'null');
+      localStorage.setItem(key, JSON.stringify(val));
+    } catch (e) { return null; }
+  }
+  var visitorId = store('visitorId');
+  if (!visitorId) {
+    visitorId = (Date.now().toString(36) + Math.random().toString(36).slice(2, 12)).replace(/[^a-z0-9]/gi, '');
+    store('visitorId', visitorId);
+  }
+
+  var products = [], categories = [], currentCat = '', cart = store('cart') || {};
+  var $ = function (id) { return document.getElementById(id); };
+  var money = function (n) { return 'NT$' + Number(n).toLocaleString('en-US'); };
+  var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+
+  function toast(text) {
+    var t = $('toast'); t.textContent = text; t.style.display = 'block';
+    clearTimeout(toast._t); toast._t = setTimeout(function () { t.style.display = 'none'; }, 1800);
+  }
+
+  function load() {
+    api('shopInfo').then(function (r) {
+      if (!r.ok) throw new Error(r.error);
+      products = r.products; categories = r.categories;
+      // 清掉購物車裡已下架的書
+      Object.keys(cart).forEach(function (id) { if (!byId(id)) delete cart[id]; });
+      renderChips(); render(); updateCount();
+    }).catch(function (e) { $('grid').innerHTML = '<div class="empty">載入失敗：' + esc(e.message) + '</div>'; });
+  }
+
+  function byId(id) { return products.find(function (p) { return p.id === id; }); }
+
+  function renderChips() {
+    var all = [''].concat(categories);
+    $('chips').innerHTML = all.map(function (c) {
+      return '<button class="chip' + (c === currentCat ? ' on' : '') + '" onclick="setCat(\'' + esc(c) + '\')">' + (c || '全部') + '</button>';
+    }).join('');
+  }
+  function setCat(c) { currentCat = c; renderChips(); render(); }
+
+  function coverHtml(p) {
+    return '<div class="cover" style="background:' + esc(p.color) + '" onclick="showDetail(\'' + p.id + '\')">' +
+      '<div class="t">' + esc(p.title) + '</div><div class="a">' + esc(p.author) + '</div></div>';
+  }
+
+  function render() {
+    var q = $('q').value.trim().toLowerCase();
+    var list = products.filter(function (p) {
+      if (currentCat && p.category !== currentCat) return false;
+      return !q || (p.title + p.author + p.category + p.description).toLowerCase().indexOf(q) >= 0;
+    });
+    if (!list.length) { $('grid').innerHTML = '<div class="empty">找不到符合的書，試試問問小拾？</div>'; return; }
+    $('grid').innerHTML = list.map(function (p) {
+      var stock = p.stock <= 0 ? '<span class="stock low">缺貨中</span>'
+                : p.stock <= 3 ? '<span class="stock low">僅剩 ' + p.stock + ' 本</span>' : '<span class="stock">現貨</span>';
+      return '<article class="card">' + coverHtml(p) +
+        '<div class="meta"><span class="cat">' + esc(p.category) + '</span>' + stock +
+        '<div class="price-row"><span class="price">' + money(p.price) + '</span>' +
+        '<button class="add" ' + (p.stock <= 0 ? 'disabled' : '') + ' onclick="addToCart(\'' + p.id + '\')">加入</button></div></div></article>';
+    }).join('');
+  }
+
+  function showDetail(id) {
+    var p = byId(id);
+    $('detail').innerHTML = '<div class="modal-body">' + coverHtml(p).replace('onclick', 'data-x') +
+      '<div class="desc"><h3>' + esc(p.title) + '</h3><div class="cat">' + esc(p.author) + '・' + esc(p.category) + '</div>' +
+      '<p>' + esc(p.description) + '</p><div class="price">' + money(p.price) + '</div>' +
+      '<button class="primary" ' + (p.stock <= 0 ? 'disabled' : '') + ' onclick="addToCart(\'' + p.id + '\');closeAll()">' +
+      (p.stock <= 0 ? '缺貨中' : '加入購物車') + '</button>' +
+      '<button class="ghost" onclick="closeAll();openChat();quickAsk(\'想多了解《' + esc(p.title) + '》\')">問小拾這本書</button></div></div>';
+    $('detail').classList.add('on'); $('overlay').classList.add('on');
+  }
+
+  // ─── 購物車 ─────────────────────────────────────────────────────
+  function addToCart(id) {
+    var p = byId(id);
+    if ((cart[id] || 0) + 1 > p.stock) return toast('庫存只剩 ' + p.stock + ' 本');
+    cart[id] = (cart[id] || 0) + 1; store('cart', cart); updateCount(); toast('已加入《' + p.title + '》');
+  }
+  function changeQty(id, d) {
+    var p = byId(id), n = (cart[id] || 0) + d;
+    if (n > p.stock) return toast('庫存只剩 ' + p.stock + ' 本');
+    if (n <= 0) delete cart[id]; else cart[id] = n;
+    store('cart', cart); updateCount(); renderCart();
+  }
+  function updateCount() {
+    $('cartCount').textContent = Object.keys(cart).reduce(function (s, k) { return s + cart[k]; }, 0);
+  }
+  function totals() {
+    var sub = Object.keys(cart).reduce(function (s, id) { return s + byId(id).price * cart[id]; }, 0);
+    var ship = sub === 0 || sub >= FREE_SHIPPING ? 0 : SHIPPING_FEE;
+    return { sub: sub, ship: ship, total: sub + ship };
+  }
+  function openCart() { renderCart(); $('cart').classList.add('on'); $('overlay').classList.add('on'); }
+  function renderCart() {
+    $('cartTitle').textContent = '購物車';
+    var ids = Object.keys(cart);
+    if (!ids.length) {
+      $('cartBody').innerHTML = '<div class="empty">購物車是空的</div>'; $('cartFoot').innerHTML = ''; return;
+    }
+    $('cartBody').innerHTML = ids.map(function (id) {
+      var p = byId(id);
+      return '<div class="line"><div class="mini" style="background:' + esc(p.color) + '"></div><div class="info"><b>' + esc(p.title) +
+        '</b><span class="cat">' + money(p.price) + '</span></div><div class="qty"><button onclick="changeQty(\'' + id + '\',-1)">−</button>' +
+        cart[id] + '<button onclick="changeQty(\'' + id + '\',1)">＋</button></div></div>';
+    }).join('');
+    var t = totals();
+    $('cartFoot').innerHTML = '<div class="sum"><span>小計</span><span>' + money(t.sub) + '</span></div>' +
+      '<div class="sum"><span>運費' + (t.ship ? '（滿 ' + money(FREE_SHIPPING) + ' 免運）' : '') + '</span><span>' + money(t.ship) + '</span></div>' +
+      '<div class="sum total"><span>合計</span><span>' + money(t.total) + '</span></div>' +
+      '<button class="primary" onclick="renderCheckout()">前往結帳</button>';
+  }
+  function renderCheckout() {
+    var saved = store('buyer') || {};
+    $('cartTitle').textContent = '填寫收件資料';
+    $('cartBody').innerHTML =
+      '<label>收件人姓名</label><input class="field" id="coName" value="' + esc(saved.name || '') + '">' +
+      '<label>手機</label><input class="field" id="coPhone" inputmode="tel" value="' + esc(saved.phone || '') + '">' +
+      '<label>收件地址</label><input class="field" id="coAddr" value="' + esc(saved.address || '') + '">' +
+      '<label>付款方式</label><div class="radio">' +
+      '<label><input type="radio" name="pay" value="轉帳" checked> 銀行轉帳</label>' +
+      '<label><input type="radio" name="pay" value="貨到付款"> 貨到付款</label></div>' +
+      '<label>備註（選填，可填統編）</label><textarea class="field" id="coNote" rows="2"></textarea><div id="coMsg"></div>';
+    var t = totals();
+    $('cartFoot').innerHTML = '<div class="sum total"><span>合計</span><span>' + money(t.total) + '</span></div>' +
+      '<button class="primary" id="coBtn" onclick="submitOrder()">送出訂單</button><button class="ghost" onclick="renderCart()">返回購物車</button>';
+  }
+  function submitOrder() {
+    var data = {
+      visitorId: visitorId,
+      items: Object.keys(cart).map(function (id) { return { product_id: id, qty: cart[id] }; }),
+      customer_name: $('coName').value, phone: $('coPhone').value, address: $('coAddr').value,
+      payment: document.querySelector('input[name=pay]:checked').value, note: $('coNote').value
+    };
+    $('coBtn').disabled = true; $('coBtn').textContent = '送出中…';
+    api('createOrder', data).then(function (r) {
+      if (!r.ok) throw new Error(r.error);
+      store('buyer', { name: data.customer_name, phone: data.phone, address: data.address });
+      cart = {}; store('cart', cart); updateCount(); load();
+      var o = r.order;
+      $('cartTitle').textContent = '訂單成立 🎉';
+      $('cartBody').innerHTML = '<pre class="order">' + esc(formatOrder(o)) + '</pre>' +
+        (o.payment === '轉帳' ? '<div class="msg ok">請於 3 天內轉帳至 拾頁銀行（999）0000-1234-5678，並透過客服告知訂單編號與帳號末五碼。</div>' : '') +
+        '<p class="cat">之後可用「訂單編號＋手機」在右上角查詢，或直接問小拾。</p>';
+      $('cartFoot').innerHTML = '<button class="primary" onclick="closeAll()">繼續逛逛</button>';
+    }).catch(function (e) {
+      $('coMsg').innerHTML = '<div class="msg err">' + esc(e.message) + '</div>';
+      $('coBtn').disabled = false; $('coBtn').textContent = '送出訂單';
+    });
+  }
+  function formatOrder(o) {
+    return ['訂單編號：' + o.order_id, '狀態：' + o.status, '下單時間：' + o.created_at]
+      .concat(o.items.map(function (i) { return '・《' + i.title + '》x' + i.qty + '　' + money(i.amount); }))
+      .concat(['運費：' + money(o.shipping), '合計：' + money(o.total) + '（' + o.payment + '）']).join('\n');
+  }
+
+  // ─── 查訂單 ─────────────────────────────────────────────────────
+  function openLookup() {
+    $('lookup').classList.add('on'); $('overlay').classList.add('on'); $('lkResult').innerHTML = '';
+    var b = store('buyer'); if (b && b.phone && !$('lkPhone').value) $('lkPhone').value = b.phone;
+    $('myOrders').innerHTML = '<p class="cat">讀取這台裝置下過的訂單…</p>';
+    api('myOrders', { visitorId: visitorId }).then(function (r) {
+      $('myOrders').innerHTML = r.ok && r.orders.length
+        ? '<label>這台裝置下過的訂單</label>' + r.orders.slice(0, 5).map(function (o) { return '<pre class="order">' + esc(formatOrder(o)) + '</pre>'; }).join('')
+        : '';
+    }).catch(function () { $('myOrders').innerHTML = ''; });
+  }
+  function doLookup() {
+    $('lkResult').innerHTML = '<p class="cat">查詢中…</p>';
+    api('lookupOrder', { order_id: $('lkId').value, phone: $('lkPhone').value }).then(function (r) {
+      $('lkResult').innerHTML = r.ok ? '<pre class="order">' + esc(formatOrder(r.order)) + '</pre>' : '<div class="msg err">' + esc(r.error) + '</div>';
+    }).catch(function (e) { $('lkResult').innerHTML = '<div class="msg err">' + esc(e.message) + '</div>'; });
+  }
+
+  function closeAll() {
+    ['overlay', 'cart', 'lookup', 'detail'].forEach(function (id) { $(id).classList.remove('on'); });
+  }
+
+  // ─── AI 客服對話框 ────────────────────────────────────────────────
+  var chatMode = 'ai', chatBusy = false, pollTimer = null, chatLoaded = false, lastCount = 0;
+
+  function bubble(role, text) {
+    var cls = role === 'user' ? 'user' : role === 'staff' ? 'staff' : role === 'sys' ? 'sys' : 'bot';
+    var d = document.createElement('div');
+    d.className = 'bubble ' + cls;
+    d.textContent = (role === 'staff' ? '【真人客服】' : '') + text;
+    $('chatBody').appendChild(d);
+    $('chatBody').scrollTop = $('chatBody').scrollHeight;
+  }
+  function setMode(mode) {
+    chatMode = mode;
+    $('chatMode').textContent = mode === 'human' ? '真人客服處理中・輸入 /ai 改回 AI' : 'AI 自動回覆・24 小時在線';
+    clearInterval(pollTimer);
+    if (mode === 'human') pollTimer = setInterval(refreshChat, 6000);
+  }
+  function renderHistory(msgs) {
+    $('chatBody').innerHTML = '';
+    bubble('bot', '您好，我是' + <?!= JSON.stringify(shopName) ?> + '的 AI 客服小拾 📚\n找書、推薦、下單、查訂單都可以問我！');
+    msgs.forEach(function (m) {
+      if (m.role === 'user') bubble('user', m.content);
+      else if (m.role === 'staff') bubble('staff', m.content);
+      else if (m.role === 'system' && /^(真人客服接手|切回 AI 客服)$/.test(m.content)) bubble('sys', m.content);
+      else bubble('bot', m.content);
+    });
+    lastCount = msgs.length;
+  }
+  function refreshChat() {
+    if (chatBusy) return;
+    api('chatHistory', { visitorId: visitorId }).then(function (r) {
+      if (!r.ok || chatBusy) return;
+      if (r.messages.length !== lastCount) renderHistory(r.messages);
+      if (r.mode !== chatMode) setMode(r.mode);
+    });
+  }
+  function openChat() {
+    $('chat').classList.add('on'); $('chatFab').style.display = 'none';
+    if (!chatLoaded) { chatLoaded = true; renderHistory([]); refreshChat(); }
+    setTimeout(function () { $('chatInput').focus(); }, 50);
+  }
+  function closeChat() { $('chat').classList.remove('on'); $('chatFab').style.display = ''; }
+  function quickAsk(text) { $('chatInput').value = text; sendChat(); }
+  function sendChat(ev) {
+    if (ev) ev.preventDefault();
+    var text = $('chatInput').value.trim();
+    if (!text || chatBusy) return;
+    $('chatInput').value = '';
+    bubble('user', text);
+    chatBusy = true;
+    var typing = document.createElement('div');
+    typing.className = 'typing'; typing.textContent = chatMode === 'human' ? '已送出，等待真人客服回覆…' : '小拾輸入中…';
+    $('chatBody').appendChild(typing); $('chatBody').scrollTop = $('chatBody').scrollHeight;
+    var buyer = store('buyer') || {};
+    api('chat', { visitorId: visitorId, text: text, name: buyer.name || '網頁訪客' }).then(function (r) {
+      typing.remove();
+      if (!r.ok) throw new Error(r.error);
+      if (r.reply) bubble('bot', r.reply);
+      lastCount += r.reply ? 2 : 1;
+      setMode(r.mode);
+      // AI 可能剛幫客人下了單，重新整理庫存
+      if (/訂單編號/.test(r.reply || '')) load();
+    }).catch(function (e) {
+      typing.remove(); bubble('sys', '傳送失敗：' + e.message);
+    }).then(function () { chatBusy = false; });
+  }
+
+  load();
+</script>
+</body>
+</html>
