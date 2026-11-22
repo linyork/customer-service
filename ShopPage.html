@@ -136,13 +136,18 @@
   .tg-btn:hover { text-decoration: none !important; opacity: .9; }
   .foot-bottom { max-width: 1100px; margin: 28px auto 0; padding-top: 18px; border-top: 1px solid #45392f;
                  display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 12px; color: #9a8d7f; }
-  .hero a.tg-link { color: var(--accent); font-weight: 700; text-decoration: none; white-space: nowrap; }
+  .hero .tg-link { color: var(--accent); font-weight: 700; white-space: nowrap; cursor: pointer; }
+  .foot .link { color: #f0c9a8; cursor: pointer; }
+  .foot .link:hover, .hero .tg-link:hover { text-decoration: underline; }
+  .brand { white-space: nowrap; }
   @media (max-width: 860px) { .foot { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 520px) { .foot { grid-template-columns: 1fr; } .tg-card { align-items: flex-start; } }
   @media (max-width: 520px) {
     .grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
     .cover .t { font-size: 16px; }
     .brand small { display: none; }
+    .brand { font-size: 18px; }
+    .icon-btn { padding: 7px 11px; }
   }
 </style>
 </head>
@@ -158,7 +163,7 @@
 
 <section class="hero">
   <h1>今天想讀點什麼？</h1>
-  <p>滿 NT$<?= freeShipping ?> 免運・有問題隨時點右下角問 AI 客服小拾<span id="heroTg">・也可以 <a class="tg-link" href="javascript:void(0)" onclick="document.getElementById('tgCol').scrollIntoView({behavior:'smooth'})">用 Telegram 問 →</a></span></p>
+  <p>滿 NT$<?= freeShipping ?> 免運・有問題隨時點右下角問 AI 客服小拾<span id="heroTg">・也可以 <span class="tg-link" role="button" tabindex="0" onclick="scrollToTg()">用 Telegram 問 →</span></span></p>
 </section>
 
 <div class="tools">
@@ -189,8 +194,8 @@
       <ul>
         <li>AI 客服：24 小時全年無休</li>
         <li>真人客服：週一至週五 10:00–18:00</li>
-        <li><a href="javascript:void(0)" onclick="openChat()">💬 開啟線上客服</a></li>
-        <li><a href="javascript:void(0)" onclick="openLookup()">🔎 查詢訂單</a></li>
+        <li><span class="link" role="button" tabindex="0" onclick="openChat()">💬 開啟線上客服</span></li>
+        <li><span class="link" role="button" tabindex="0" onclick="openLookup()">🔎 查詢訂單</span></li>
       </ul>
     </div>
     <div id="tgCol">
@@ -540,6 +545,13 @@
   }
 
   // ─── Footer：Telegram QR code ─────────────────────────────────────
+  // 頁面在 GAS 的 iframe 裡，又有 <base target="_top">：href="#…" 或 javascript: 連結會被當成
+  // 導覽頂層視窗而失效（2026/11/22 手機版實測點了沒反應），所以用 JS 自己捲動，扣掉固定的 header 高度。
+  function scrollToTg() {
+    var el = $('tgCol'), header = document.querySelector('header');
+    var top = el.getBoundingClientRect().top + window.pageYOffset - (header ? header.offsetHeight + 12 : 0);
+    window.scrollTo({ top: top, behavior: 'smooth' });
+  }
   // bot 名稱由 doGet 從 Telegram getMe 取得；取不到就整區隱藏。
   // QR 由 qrcodejs 在瀏覽器產生；CDN 載不到時只留「開啟 Telegram」按鈕。
   (function initTelegram() {
