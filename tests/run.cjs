@@ -275,8 +275,17 @@ test('NvidiaService：主模型 404 時改用備援模型', () => {
   assert.deepStrictEqual(models, [g.Config.NVIDIA_MODEL, g.Config.NVIDIA_FALLBACK_MODEL]);
 });
 
-test('NvidiaService：清掉 <think> 區塊；gemma 不送 tool_choice、備援送 reasoning_effort', () => {
-  const g = fresh();
+test('模型可用 Script Property 覆寫', () => {
+  const g = fresh({ NVIDIA_MODEL: 'x/main', NVIDIA_FALLBACK_MODEL: 'x/fb' });
+  let model = null;
+  g.__http.nvidiaQueue.push(p => { model = p.model; return text('ok'); });
+  g.NvidiaService.chat([{ role: 'user', content: 'hi' }], {});
+  assert.strictEqual(model, 'x/main');
+  assert.strictEqual(g.Config.NVIDIA_FALLBACK_MODEL, 'x/fb');
+});
+
+test('NvidiaService：清掉 <think> 區塊；gemma 不送 tool_choice、gpt-oss 備援送 reasoning_effort', () => {
+  const g = fresh({ NVIDIA_FALLBACK_MODEL: 'openai/gpt-oss-20b' });
   let p1 = null;
   g.__http.nvidiaQueue.push(p => { p1 = p; return text('<think>想一下</think>答案'); });
   const r = g.NvidiaService.chat([{ role: 'user', content: 'hi' }], { tools: g.Tools.definitions() });

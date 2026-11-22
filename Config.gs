@@ -40,9 +40,11 @@ var Config = (() => {
     get NVIDIA_API_KEY() { return get('NVIDIA_API_KEY'); },
     NVIDIA_API_BASE: 'https://integrate.api.nvidia.com/v1',
     // 主模型：非思考、原生 Function Calling、繁中表現穩定（iris／christina 實測過）。
-    NVIDIA_MODEL: 'google/gemma-4-31b-it',
-    // 主模型失敗（下架、過載、重試耗盡）時改用這顆重試一次。
-    NVIDIA_FALLBACK_MODEL: 'openai/gpt-oss-20b',
+    // 可用 Script Property NVIDIA_MODEL 覆寫，換模型不必重新部署（先跑 DevTools.testNimCandidates）。
+    get NVIDIA_MODEL() { return get('NVIDIA_MODEL') || 'google/gemma-4-31b-it'; },
+    // 主模型失敗（下架、過載、重試耗盡）時改用這顆重試一次；Script Property NVIDIA_FALLBACK_MODEL 可覆寫。
+    // ⚠️ 原本的 openai/gpt-oss-20b 在 2026/11/22 已不在 NIM 目錄上，暫用同家族小模型。
+    get NVIDIA_FALLBACK_MODEL() { return get('NVIDIA_FALLBACK_MODEL') || 'google/gemma-3-12b-it'; },
     MAX_OUTPUT_TOKENS: 2048,
     TEMPERATURE: 0.4,
 

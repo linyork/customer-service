@@ -114,6 +114,44 @@ function testNvidia() {
   console.log('帶工具：' + JSON.stringify(r2 && r2.message));
 }
 
+/**
+ * 逐一實測候選模型：同一題（需要叫 search_products）看延遲、有沒有叫工具。
+ * 換主模型或備援前先跑這支。模型目錄：curl https://integrate.api.nvidia.com/v1/models
+ */
+function testNimCandidates() {
+  var candidates = [
+    'google/gemma-4-31b-it',
+    'nvidia/nemotron-3.5-lightning-30b-a3b',
+    'mistralai/mistral-large-4-1t-a52b',
+    'google/gemma-3-12b-it',
+    'z-ai/glm-5.3-flash'
+  ];
+  var messages = [
+    { role: 'system', content: Prompt.system('telegram') },
+    { role: 'user', content: '有沒有推理小說？' }
+  ];
+  candidates.forEach(model => {
+    var started = Date.now();
+    var payload = { model: model, messages: messages, max_tokens: 512, temperature: 0.4, tools: Tools.definitions() };
+    if (model.indexOf('gemma') === -1) payload.tool_choice = 'auto';
+    try {
+      var res = UrlFetchApp.fetch(Config.NVIDIA_API_BASE + '/chat/completions', {
+        method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+        headers: { Authorization: 'Bearer ' + Config.NVIDIA_API_KEY },
+        payload: JSON.stringify(payload)
+      });
+      var ms = Date.now() - started;
+      var body = Utils.parseJson(res.getContentText()) || {};
+      var msg = body.choices && body.choices[0] && body.choices[0].message;
+      var calls = (msg && msg.tool_calls || []).map(c => c.function.name + c.function.arguments);
+      console.log(model + ' | HTTP ' + res.getResponseCode() + ' | ' + ms + 'ms | 工具：' +
+        (calls.join(', ') || '（無）') + ' | 正文：' + String(msg && msg.content || '').slice(0, 60));
+    } catch (e) {
+      console.log(model + ' | 例外 ' + e + ' | ' + (Date.now() - started) + 'ms');
+    }
+  });
+}
+
 /** 從編輯器模擬一位網頁訪客跟 AI 客服對話 */
 function testChat() {
   var reply = ChatBot.reply('WEB:devtools', '你好，有推薦的散文嗎？', '開發者測試');
