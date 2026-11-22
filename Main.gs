@@ -33,8 +33,10 @@ function doPost(e) {
 
   if (Telegram.isUpdate(body)) {
     handleTelegramUpdate_(body);
-    // Telegram 只看 HTTP 200，內容不重要
-    return ContentService.createTextOutput('ok');
+    // ⚠️ 不可回 ContentService：/exec 會把它包成 302 轉址，Telegram 不跟轉址、
+    //    當成失敗一直重送（max_connections=1 時還會卡住後面所有訊息）。
+    //    什麼都不回，GAS 直接給 200，Telegram 才會認定送達。（2026/11/22 實測踩到）
+    return;
   }
 
   if (body && body.source === 'web') {

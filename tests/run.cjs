@@ -32,6 +32,7 @@ const tgUpdate = (id, chatId, txt) => ({
 });
 const post = (g, body) => {
   const out = g.doPost({ postData: { contents: JSON.stringify(body) } });
+  if (out === undefined) return undefined;
   try { return JSON.parse(out.getContent()); } catch (e) { return out.getContent(); }
 };
 const order = (over) => Object.assign({
@@ -338,8 +339,8 @@ test('頻率限制：超過上限後擋下且不呼叫 LLM', () => {
 test('doPost：Telegram update → ChatBot → sendMessage 回給同一個 chat', () => {
   const g = fresh();
   g.__http.nvidiaQueue.push(text('歡迎光臨！'));
-  const out = post(g, tgUpdate(1001, 555, '你好'));
-  assert.strictEqual(out, 'ok');
+  const out = g.doPost({ postData: { contents: JSON.stringify(tgUpdate(1001, 555, '你好')) } });
+  assert.strictEqual(out, undefined, 'Telegram 路徑不可回 ContentService（會變 302，Telegram 會一直重送）');
   const sent = g.__http.telegram.filter(t => t.method === 'sendMessage');
   assert.strictEqual(sent.length, 1);
   assert.strictEqual(sent[0].payload.chat_id, '555');
