@@ -563,6 +563,28 @@ test('doGet：預設商店頁、?page=admin 後台，並注入 API 網址', () =
   assert.match(admin.vars.apiUrl, /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/);
 });
 
+test('商店頁 footer 的 bot 名稱：第一次打 getMe，之後讀快取；後台不打', () => {
+  const g = fresh();
+  assert.strictEqual(g.doGet({ parameter: { page: 'admin' } }).vars.botUsername, '');
+  assert.strictEqual(g.__http.telegram.length, 0);
+  assert.strictEqual(g.doGet({ parameter: {} }).vars.botUsername, 'shiye_test_bot');
+  assert.strictEqual(g.__props.BOT_USERNAME, 'shiye_test_bot');
+  g.doGet({ parameter: {} });
+  assert.strictEqual(g.__http.telegram.filter(t => t.method === 'getMe').length, 1, '第二次應讀快取');
+});
+
+test('沒有 Telegram token 時商店頁照常開，只是沒有 QR 區', () => {
+  const g = fresh({ TELEGRAM_API_KEY: '' });
+  const page = g.doGet({ parameter: {} });
+  assert.strictEqual(page.file, 'ShopPage');
+  assert.strictEqual(page.vars.botUsername, '');
+});
+
+test('/start 帶 deep link 參數（QR code 的 ?start=web）也認得', () => {
+  const g = fresh();
+  assert.match(g.ChatBot.handle('TG:31', '/start web', ''), /歡迎光臨/);
+});
+
 test('dailyCleanUp 只刪過期的對話', () => {
   const g = fresh();
   g.DB.insert('chat', { timestamp: '2020/01/01 00:00:00', session_id: 'X', role: 'user', content: 'old' });

@@ -22,6 +22,10 @@ function doGet(e) {
   t.slogan = Config.SHOP_SLOGAN;
   t.shippingFee = Config.SHIPPING_FEE;
   t.freeShipping = Config.FREE_SHIPPING_THRESHOLD;
+  // footer 的 Telegram QR code；取不到 bot 名稱時頁面會隱藏那一區，不影響商店
+  var bot = '';
+  try { bot = page === 'admin' ? '' : Telegram.botUsername(); } catch (ex) { Logger.error('doGet', '取得 bot 名稱失敗', ex); }
+  t.botUsername = bot;
   return t.evaluate()
     .setTitle(page === 'admin' ? Config.SHOP_NAME + '｜後台' : Config.SHOP_NAME)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')

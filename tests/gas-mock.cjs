@@ -148,7 +148,8 @@ function createGas(opts) {
         if (url.indexOf('api.telegram.org') >= 0) {
           const method = url.split('/').pop();
           http.telegram.push({ method, payload });
-          return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ ok: true, result: true }) };
+          const result = method === 'getMe' ? { id: 1, is_bot: true, username: 'shiye_test_bot' } : true;
+          return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ ok: true, result }) };
         }
         throw new Error('未模擬的網址：' + url);
       }

@@ -65,6 +65,24 @@ var Telegram = (() => {
 
   tg.getWebhookInfo = () => call('getWebhookInfo', {});
 
+  /**
+   * Bot 的 username（商店頁 footer 的 QR code 用）。
+   * 第一次呼叫 getMe 後存進 Script Property BOT_USERNAME，之後不再打 API；
+   * 換 bot（換 TELEGRAM_API_KEY）時刪掉這個屬性即可重新抓。
+   * @returns {string} 例如 'shiye_books_bot'；取不到回空字串
+   */
+  tg.botUsername = () => {
+    var props = PropertiesService.getScriptProperties();
+    var cached = props.getProperty('BOT_USERNAME');
+    if (cached) return cached;
+    if (!Config.TELEGRAM_API_KEY) return '';
+    var me = call('getMe', {});
+    var name = me && me.ok && me.result && me.result.username;
+    if (!name) return '';
+    props.setProperty('BOT_USERNAME', name);
+    return name;
+  };
+
   tg.setCommands = () => call('setMyCommands', {
     commands: [
       { command: 'start',  description: '開始使用 / 看看能做什麼' },

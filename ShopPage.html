@@ -121,7 +121,24 @@
 
   .toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); background: var(--ink); color: #fff;
            padding: 10px 18px; border-radius: 999px; z-index: 50; font-size: 14px; display: none; }
-  footer { text-align: center; color: var(--muted); font-size: 12px; padding: 0 16px 100px; }
+  footer { background: #2b2420; color: #d9cfc3; margin-top: 20px; padding: 40px 16px 110px; font-size: 14px; }
+  .foot { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1.3fr 1fr 1fr 1.2fr; gap: 28px; }
+  .foot h4 { color: #fff; margin: 0 0 12px; font-size: 15px; letter-spacing: 1px; }
+  .foot p, .foot li { margin: 0 0 8px; line-height: 1.7; color: #c4b8aa; }
+  .foot ul { list-style: none; padding: 0; margin: 0; }
+  .foot a { color: #f0c9a8; text-decoration: none; }
+  .foot a:hover { text-decoration: underline; }
+  .foot .brand-f { font-size: 18px; font-weight: 800; color: #fff; margin-bottom: 8px; }
+  .tg-card { background: #3a312b; border-radius: 14px; padding: 16px; display: flex; gap: 14px; align-items: center; }
+  .qr { background: #fff; padding: 8px; border-radius: 10px; flex: none; width: 116px; height: 116px; display: flex; align-items: center; justify-content: center; }
+  .qr img, .qr canvas { width: 100px !important; height: 100px !important; }
+  .tg-btn { display: inline-block; margin-top: 8px; background: #2aa3df; color: #fff !important; border-radius: 999px; padding: 6px 14px; font-weight: 700; font-size: 13px; }
+  .tg-btn:hover { text-decoration: none !important; opacity: .9; }
+  .foot-bottom { max-width: 1100px; margin: 28px auto 0; padding-top: 18px; border-top: 1px solid #45392f;
+                 display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 12px; color: #9a8d7f; }
+  .hero a.tg-link { color: var(--accent); font-weight: 700; text-decoration: none; white-space: nowrap; }
+  @media (max-width: 860px) { .foot { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 520px) { .foot { grid-template-columns: 1fr; } .tg-card { align-items: flex-start; } }
   @media (max-width: 520px) {
     .grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
     .cover .t { font-size: 16px; }
@@ -141,7 +158,7 @@
 
 <section class="hero">
   <h1>今天想讀點什麼？</h1>
-  <p>滿 NT$<?= freeShipping ?> 免運・有問題隨時點右下角問 AI 客服小拾</p>
+  <p>滿 NT$<?= freeShipping ?> 免運・有問題隨時點右下角問 AI 客服小拾<span id="heroTg">・也可以 <a class="tg-link" href="javascript:void(0)" onclick="document.getElementById('tgCol').scrollIntoView({behavior:'smooth'})">用 Telegram 問 →</a></span></p>
 </section>
 
 <div class="tools">
@@ -150,7 +167,49 @@
 </div>
 
 <main class="grid" id="grid"><div class="empty">載入中…</div></main>
-<footer>此為 AI 導入示範網站，書目皆為虛構，不會真的出貨。</footer>
+<footer id="footer">
+  <div class="foot">
+    <div>
+      <div class="brand-f">📚 <?= shopName ?></div>
+      <p><?= slogan ?>。我們相信好書值得被好好介紹，從選書、包裝到售後，每一步都用心對待。</p>
+      <p>導入 AI 客服「小拾」，24 小時回答找書、訂單與購物問題，需要時一鍵轉接真人客服。</p>
+    </div>
+    <div>
+      <h4>購物說明</h4>
+      <ul>
+        <li>滿 NT$<?= freeShipping ?> 免運，未滿酌收 NT$<?= shippingFee ?></li>
+        <li>付款方式：銀行轉帳、貨到付款</li>
+        <li>付款後 1–2 個工作天出貨</li>
+        <li>7 天鑑賞期，未拆封可退換</li>
+        <li>可開立統一編號發票</li>
+      </ul>
+    </div>
+    <div>
+      <h4>客服資訊</h4>
+      <ul>
+        <li>AI 客服：24 小時全年無休</li>
+        <li>真人客服：週一至週五 10:00–18:00</li>
+        <li><a href="javascript:void(0)" onclick="openChat()">💬 開啟線上客服</a></li>
+        <li><a href="javascript:void(0)" onclick="openLookup()">🔎 查詢訂單</a></li>
+      </ul>
+    </div>
+    <div id="tgCol">
+      <h4>用 Telegram 找我們</h4>
+      <div class="tg-card">
+        <div class="qr" id="tgQr"></div>
+        <div>
+          <p style="color:#fff;margin-bottom:4px"><b>掃描 QR Code</b></p>
+          <p style="font-size:13px">在 Telegram 直接問 AI 客服、查書、下單，隨時隨地都能逛。</p>
+          <a class="tg-btn" id="tgBtn" target="_blank" rel="noopener">開啟 Telegram</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="foot-bottom">
+    <span>© 2026 <?= shopName ?>．AI 客服導入示範專案</span>
+    <span>本站為技術示範，書目與店家資訊皆為虛構，訂單不會實際出貨或收款。</span>
+  </div>
+</footer>
 
 <div class="overlay" id="overlay" onclick="closeAll()"></div>
 
@@ -198,6 +257,7 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
   var API_URL = <?!= JSON.stringify(apiUrl) ?>;
   var SHIPPING_FEE = <?!= JSON.stringify(shippingFee) ?>;
@@ -478,6 +538,23 @@
       typing.remove(); bubble('sys', '傳送失敗：' + e.message);
     }).then(function () { chatBusy = false; });
   }
+
+  // ─── Footer：Telegram QR code ─────────────────────────────────────
+  // bot 名稱由 doGet 從 Telegram getMe 取得；取不到就整區隱藏。
+  // QR 由 qrcodejs 在瀏覽器產生；CDN 載不到時只留「開啟 Telegram」按鈕。
+  (function initTelegram() {
+    var bot = <?!= JSON.stringify(botUsername) ?>;
+    if (!bot) { $('tgCol').style.display = 'none'; $('heroTg').style.display = 'none'; return; }
+    var url = 'https://t.me/' + bot + '?start=web';
+    $('tgBtn').href = url;
+    $('tgBtn').textContent = '開啟 @' + bot;
+    if (window.QRCode) {
+      new QRCode($('tgQr'), { text: url, width: 100, height: 100, colorDark: '#2b2420', colorLight: '#ffffff',
+                              correctLevel: QRCode.CorrectLevel.M });
+    } else {
+      $('tgQr').style.display = 'none';
+    }
+  })();
 
   load();
 </script>
