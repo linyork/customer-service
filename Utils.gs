@@ -34,6 +34,7 @@ var Utils = (() => {
   utils.stripMarkdown = (str) => String(str || '')
     .replace(/\*\*(.+?)\*\*/g, '$1')
     .replace(/__(.+?)__/g, '$1')
+    .replace(/(^|[^*])\*(?!\s)([^*\n]+?)\*(?!\*)/g, '$1$2')
     .replace(/^#{1,6}\s+/gm, '')
     .replace(/`{1,3}([^`]*)`{1,3}/g, '$1')
     .replace(/^\s*[-*]\s+/gm, '・')

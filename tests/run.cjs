@@ -354,6 +354,13 @@ test('NvidiaService：503 會重試', () => {
   assert.strictEqual(g.NvidiaService.chat([{ role: 'user', content: 'hi' }], {}).message.content, '第二次成功');
 });
 
+test('stripMarkdown：粗體、斜體、標題、清單符號都清掉', () => {
+  const g = fresh();
+  assert.strictEqual(g.Utils.stripMarkdown('**粗體** 與 *斜體簡介*'), '粗體 與 斜體簡介');
+  assert.strictEqual(g.Utils.stripMarkdown('## 標題\n- 項目'), '標題\n・項目');
+  assert.strictEqual(g.Utils.stripMarkdown('3 * 4 = 12'), '3 * 4 = 12');
+});
+
 test('斜線指令不花 LLM 配額', () => {
   const g = fresh();
   const r = g.ChatBot.handle('TG:1', '/books', '');
