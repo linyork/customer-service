@@ -12,6 +12,19 @@ const vm = require('vm');
 const ROOT = path.join(__dirname, '..');
 
 // ─── Spreadsheet ────────────────────────────────────────────────
+// 模擬 Google Sheet 寫入時的自動轉型（真的 Sheet 就是這樣，2026/11/22 驗收踩到）：
+//   前導 ' 的字串 → 去掉 ' 當純文字
+//   看起來像數字的字串 → 數字（'0900000000' → 900000000，電話掉 0）
+//   看起來像日期時間的字串 → Date
+function sheetCoerce(v) {
+  if (typeof v !== 'string') return v;
+  if (v.startsWith("'")) return v.slice(1);
+  if (/^-?\d+(\.\d+)?$/.test(v)) return Number(v);
+  const m = v.match(/^(\d{4})\/(\d{2})\/(\d{2}) (\d{2}):(\d{2}):(\d{2})$/);
+  if (m) return new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}+08:00`);
+  return v;
+}
+
 class Range {
   constructor(sheet, row, col, nr, nc) { Object.assign(this, { sheet, row, col, nr, nc }); }
   getValues() {
@@ -31,7 +44,7 @@ class Range {
     values.forEach((line, r) => {
       const idx = this.row - 1 + r;
       while (this.sheet.rows.length <= idx) this.sheet.rows.push([]);
-      line.forEach((v, c) => { this.sheet.rows[idx][this.col - 1 + c] = v; });
+      line.forEach((v, c) => { this.sheet.rows[idx][this.col - 1 + c] = sheetCoerce(v); });
     });
     return this;
   }
@@ -53,7 +66,7 @@ class Sheet {
     if (typeof a === 'string') return new Range(this, 1, 1, 0, 0); // 'A:A' 這類只拿來設格式
     return new Range(this, a, b, c || 1, d || 1);
   }
-  appendRow(row) { this.rows.length = this.getLastRow(); this.rows.push(row.slice()); }
+  appendRow(row) { this.rows.length = this.getLastRow(); this.rows.push(row.map(sheetCoerce)); }
   deleteRows(start, n) { this.rows.splice(start - 1, n); }
   setFrozenRows() {}
 }
