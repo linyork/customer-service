@@ -153,7 +153,33 @@ var WebApi = (() => {
 
     products: () => ({ ok: true, products: Store.listProducts(true) }),
 
-    updateProduct: (b) => Store.updateProduct(b.id, b.changes || {})
+    updateProduct: (b) => Store.updateProduct(b.id, b.changes || {}),
+
+    // ─── AI 追蹤（可查驗：模型看到什麼、叫了哪些工具、花多久、用多少 token）───
+    traces: (b) => ({
+      ok: true,
+      traces: AiTrace.list(Number(b.limit) || 60, b.sessionId || ''),
+      config: {
+        model: Config.NVIDIA_MODEL,
+        fallbackModel: Config.NVIDIA_FALLBACK_MODEL,
+        temperature: Config.TEMPERATURE,
+        maxTokens: Config.MAX_OUTPUT_TOKENS,
+        maxIterations: Config.TOOL_MAX_ITERATIONS,
+        historyTurns: Config.CHAT_HISTORY_TURNS
+      }
+    }),
+
+    trace: (b) => {
+      var t = AiTrace.get(b.traceId);
+      return t ? { ok: true, trace: t } : { ok: false, error: '查無此紀錄（可能已過保留期限）' };
+    },
+
+    /** 目前的 system prompt 與工具定義，讓店家知道 AI 被怎麼約束 */
+    aiConfig: () => ({
+      ok: true,
+      prompts: { telegram: Prompt.system('telegram'), web: Prompt.system('webchat') },
+      tools: Tools.definitions().map(t => ({ name: t.function.name, description: t.function.description, parameters: t.function.parameters }))
+    })
   };
 
   /**

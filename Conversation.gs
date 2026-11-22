@@ -44,9 +44,9 @@ var Conversation = (() => {
    * 寫入一則訊息
    * @param {string} role - user | assistant | staff | system
    */
-  conv.append = (sessionId, role, content) => {
+  conv.append = (sessionId, role, content, traceId) => {
     var now = Utils.now();
-    DB.insert('chat', { timestamp: now, session_id: sessionId, role: role, content: String(content) });
+    DB.insert('chat', { timestamp: now, session_id: sessionId, role: role, content: String(content), trace_id: traceId || '' });
     var s = conv.getSession(sessionId);
     if (s) {
       var changes = { last_message_at: now };
@@ -67,7 +67,7 @@ var Conversation = (() => {
   conv.messages = (sessionId, limit) => {
     var rows = DB.tail('chat', 2000).filter(r => String(r.session_id) === String(sessionId));
     if (limit) rows = rows.slice(-limit);
-    return rows.map(r => ({ timestamp: String(r.timestamp), role: String(r.role), content: String(r.content) }));
+    return rows.map(r => ({ timestamp: String(r.timestamp), role: String(r.role), content: String(r.content), trace_id: String(r.trace_id || '') }));
   };
 
   /** 給 LLM 的歷史：只取 user / assistant / staff，staff 以 assistant 身分出現 */

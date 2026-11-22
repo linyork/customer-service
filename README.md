@@ -7,9 +7,9 @@
 | 入口 | 網址 / 位置 | 用途 |
 |---|---|---|
 | 商店頁 | `/exec` | 簡易電商：分類、搜尋、購物車、結帳、查訂單、右下角 AI 對話框 |
-| 後台 | `/exec?page=admin` | 總覽、客服對話（可真人接手回覆）、訂單狀態、商品庫存 |
+| 後台 | `/exec?page=admin` | 總覽、客服對話（可真人接手回覆）、訂單狀態、商品庫存、AI 追蹤 |
 | Telegram bot | webhook → `/exec`（POST） | 客人詢問與下單 |
-| Google Sheet | `SHEET_ID` | 資料庫（products / orders / order_items / sessions / chat / faq / console.log） |
+| Google Sheet | `SHEET_ID` | 資料庫（products / orders / order_items / sessions / chat / faq / console.log / ai_trace） |
 | NVIDIA NIM | `integrate.api.nvidia.com` | LLM（`google/gemma-4-31b-it`，備援 `openai/gpt-oss-20b`） |
 
 ## 架構
@@ -29,6 +29,7 @@ ChatBot（ReAct 迴圈）── NvidiaService ── NVIDIA NIM                 
 - **AI 不能編造**：書價、庫存、訂單狀態只能來自工具結果；下單前必須讓客人確認摘要。
 - **身分由系統注入**：工具的 sessionId 不是模型參數，模型無法冒用別人查單。
 - **轉真人**：客人輸入 `/human` 或 AI 判斷需要時切成真人模式，AI 停止回覆、通知店家；後台回覆會即時推到 Telegram，網頁訪客由對話框輪詢取得。
+- **AI 可查驗**：每次 AI 回覆都在 `ai_trace` 留一筆紀錄（模型看到的歷史、每一輪用哪個模型／耗時／token、有沒有重試或改用備援、叫了哪些工具與參數、工具回傳什麼、最後回覆）。後台「AI 追蹤」分頁逐步呈現，對話裡的 AI 訊息可一鍵跳過去；同頁也能看目前的 system prompt 與工具定義。
 
 ## 首次設定
 

@@ -102,7 +102,8 @@ function dailyCleanUp() {
     var day = 24 * 3600 * 1000;
     var chatN = DB.purgeBefore('chat', 'timestamp', new Date(Date.now() - Config.CHAT_CLEANUP_DAYS * day));
     var logN = DB.purgeBefore('console.log', 'timestamp', new Date(Date.now() - Config.LOG_CLEANUP_DAYS * day));
-    Logger.info('dailyCleanUp', '清除 chat ' + chatN + ' 筆、log ' + logN + ' 筆');
+    var traceN = DB.purgeBefore('ai_trace', 'timestamp', new Date(Date.now() - Config.TRACE_CLEANUP_DAYS * day));
+    Logger.info('dailyCleanUp', '清除 chat ' + chatN + ' 筆、log ' + logN + ' 筆、AI 追蹤 ' + traceN + ' 筆');
   } catch (ex) {
     Logger.error('dailyCleanUp', '清理失敗', ex);
   }

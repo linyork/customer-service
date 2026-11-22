@@ -14,9 +14,12 @@ var DB = (() => {
                     'payment', 'subtotal', 'shipping', 'total', 'status', 'note', 'updated_at'],
     'order_items': ['order_id', 'product_id', 'title', 'price', 'qty', 'amount'],
     'sessions':    ['session_id', 'channel', 'display_name', 'mode', 'created_at', 'last_message_at', 'unread'],
-    'chat':        ['timestamp', 'session_id', 'role', 'content'],
+    'chat':        ['timestamp', 'session_id', 'role', 'content', 'trace_id'],
     'faq':         ['question', 'answer'],
-    'console.log': ['timestamp', 'level', 'tag', 'message', 'detail']
+    'console.log': ['timestamp', 'level', 'tag', 'message', 'detail'],
+    // 每次 AI 回覆的推理紀錄（AiTrace.gs）；steps 是 JSON
+    'ai_trace':    ['trace_id', 'timestamp', 'session_id', 'channel', 'user_text', 'reply', 'status',
+                    'llm_calls', 'tools_used', 'total_ms', 'tokens_in', 'tokens_out', 'model', 'steps']
   };
 
   // 訂單狀態流轉（後台下拉選單與工具共用）

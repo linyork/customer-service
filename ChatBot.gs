@@ -71,35 +71,49 @@ var ChatBot = (() => {
       return null;
     }
 
-    var reply = bot.reply(sessionId, text, session.display_name);
-    Conversation.append(sessionId, 'assistant', reply);
-    return reply;
+    var r = bot.run(sessionId, text, session.display_name);
+    Conversation.append(sessionId, 'assistant', r.text, r.traceId);
+    return r.text;
   };
 
+  /** 只要回覆文字（DevTools.testChat 用）；一樣會留 AI 追蹤紀錄 */
+  bot.reply = (sessionId, text, displayName) => bot.run(sessionId, text, displayName).text;
+
   /**
-   * ReAct 迴圈（不寫 chat，只負責產生回覆；DevTools.testChat 也直接呼叫這裡）
-   * @returns {string}
+   * ReAct 迴圈（不寫 chat，只負責產生回覆），每一步都記進 AiTrace
+   * @returns {{text:string, traceId:string}}
    */
-  bot.reply = (sessionId, text, displayName) => {
+  bot.run = (sessionId, text, displayName) => {
     var ctx = { sessionId: sessionId, channel: Conversation.channelOf(sessionId), displayName: displayName || '' };
+    var trace = AiTrace.start(ctx, text);
+    var done = (out, status) => ({ text: out, traceId: AiTrace.finish(trace, out, status) });
+
     var history = Conversation.historyForLLM(sessionId);
     // handle() 已經把這則 user 訊息寫進 chat；歷史最後一則若就是它，不要重複
     var last = history[history.length - 1];
     if (last && last.role === 'user' && last.content === text) history.pop();
 
-    var messages = [{ role: 'system', content: Prompt.system(ctx.channel) }]
+    var systemPrompt = Prompt.system(ctx.channel);
+    var messages = [{ role: 'system', content: systemPrompt }]
       .concat(history)
       .concat([{ role: 'user', content: text }]);
 
     var toolDefs = Tools.definitions();
+    AiTrace.input(trace, { systemPrompt: systemPrompt, history: history, toolNames: toolDefs.map(t => t.function.name) });
 
     for (var turn = 1; turn <= Config.TOOL_MAX_ITERATIONS; turn++) {
       if (Utils.execTimeLeftMs() < TURN_RESERVE_MS) {
         Logger.warning('ChatBot', '時間預算不足，停止第 ' + turn + ' 輪');
+        AiTrace.note(trace, '執行時間預算不足，第 ' + turn + ' 輪前停止');
         break;
       }
       var isLast = turn === Config.TOOL_MAX_ITERATIONS;
-      var res = NvidiaService.chat(messages, isLast ? {} : { tools: toolDefs });
+      var attempts = [];
+      var t0 = Date.now();
+      var opts = isLast ? {} : { tools: toolDefs };
+      opts.trace = attempts;
+      var res = NvidiaService.chat(messages, opts);
+      AiTrace.llm(trace, turn, !isLast, attempts, res, Date.now() - t0);
       if (!res) break;
 
       var msg = res.message;
@@ -107,21 +121,23 @@ var ChatBot = (() => {
 
       if (!calls.length) {
         var out = Utils.stripMarkdown(msg.content || '');
-        return out || FALLBACK_REPLY;
+        return out ? done(out, 'ok') : done(FALLBACK_REPLY, 'fallback');
       }
 
       messages.push({ role: 'assistant', content: msg.content || null, tool_calls: calls });
       calls.forEach(call => {
         var args = Utils.parseJson(call.function && call.function.arguments) || {};
         var name = call.function && call.function.name;
+        var t1 = Date.now();
         var result = Tools.execute(name, args, ctx);
+        AiTrace.tool(trace, name, args, result, Date.now() - t1);
         Logger.info('ChatBot.tool', name, { args: args, ok: result.ok });
         messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(result) });
       });
     }
 
     Logger.error('ChatBot', '無法產生回覆', sessionId);
-    return FALLBACK_REPLY;
+    return done(FALLBACK_REPLY, 'fallback');
   };
 
   return bot;

@@ -79,10 +79,43 @@
   .thread-f { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--line); }
   .thread-f textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
   .placeholder { margin: auto; color: var(--muted); }
+  .b .tr-link { display: block; margin-top: 4px; font-size: 12px; color: var(--blue); cursor: pointer; text-decoration: underline; }
+
+  /* AI 追蹤 */
+  .cfg { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; }
+  .cfg b { font-weight: 600; }
+  .tgrid { display: grid; grid-template-columns: 360px 1fr; gap: 14px; height: calc(100vh - 330px); min-height: 520px; }
+  .tlist { background: var(--paper); border-radius: 14px; overflow-y: auto; }
+  .titem { padding: 10px 14px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .titem:hover, .titem.on { background: var(--soft); }
+  .titem .q { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 4px 0; }
+  .titem .meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 12px; }
+  .tdetail { background: var(--paper); border-radius: 14px; overflow-y: auto; padding: 16px 18px; }
+  .chip { display: inline-block; border-radius: 6px; padding: 0 6px; font-size: 12px; background: #eef1f5; color: #3b4a5e; font-family: ui-monospace, Consolas, monospace; }
+  .pill.ok { background: #dcefe3; color: var(--ok); }
+  .pill.bad { background: #fbe1d6; color: #8c3418; }
+  .steps { position: relative; margin-top: 12px; }
+  .step { position: relative; padding: 0 0 16px 30px; }
+  .step::before { content: ''; position: absolute; left: 10px; top: 22px; bottom: 0; width: 2px; background: var(--line); }
+  .step:last-child::before { display: none; }
+  .step .ic { position: absolute; left: 0; top: 0; width: 22px; height: 22px; border-radius: 50%; background: var(--soft);
+              display: flex; align-items: center; justify-content: center; font-size: 12px; }
+  .step .h { font-weight: 700; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; min-height: 22px; }
+  .step .h .muted { font-weight: 400; font-size: 12px; }
+  .step .body { margin-top: 6px; font-size: 13px; line-height: 1.6; }
+  .step pre, .cfgbox pre { background: #f7f5f1; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 6px 0 0;
+              white-space: pre-wrap; word-break: break-word; font-size: 12px; max-height: 280px; overflow-y: auto; }
+  .step details summary, .cfgbox details summary { cursor: pointer; color: var(--blue); font-size: 12px; margin-top: 4px; }
+  .cfgbox { margin-top: 12px; font-size: 13px; line-height: 1.6; }
+  .attempt { font-size: 12px; font-family: ui-monospace, Consolas, monospace; }
+  .attempt.fail { color: #8c3418; }
+  .quote { background: var(--bg); border-radius: 10px; padding: 8px 12px; white-space: pre-wrap; word-break: break-word; }
   @media (max-width: 760px) {
     .inbox { grid-template-columns: 1fr; height: auto; }
     .list { max-height: 260px; }
     .thread { height: 70vh; }
+    .tgrid { grid-template-columns: 1fr; height: auto; }
+    .tlist { max-height: 300px; }
   }
 </style>
 </head>
@@ -149,6 +182,7 @@
       '<button class="tab" data-t="chat" onclick="go(\'chat\')">客服對話<span class="badge" id="unreadBadge" style="display:none"></span></button>' +
       '<button class="tab" data-t="orders" onclick="go(\'orders\')">訂單</button>' +
       '<button class="tab" data-t="products" onclick="go(\'products\')">商品庫存</button>' +
+      '<button class="tab" data-t="traces" onclick="go(\'traces\')">AI 追蹤</button>' +
       '<span class="spacer"></span><a href="' + esc(API_URL) + '" target="_blank">前往商店 ↗</a>' +
       '<button class="tab" onclick="logout()">登出</button></div></header><main id="main"></main>';
     go(tab);
@@ -157,7 +191,7 @@
     tab = t; clearInterval(pollTimer);
     document.querySelectorAll('.tab[data-t]').forEach(function (b) { b.classList.toggle('on', b.dataset.t === t); });
     $('main').innerHTML = '<p class="muted">載入中…</p>';
-    ({ dash: loadDash, chat: loadChat, orders: loadOrders, products: loadProducts })[t]();
+    ({ dash: loadDash, chat: loadChat, orders: loadOrders, products: loadProducts, traces: loadTraces })[t]();
   }
   function fail(e) { $('main').innerHTML = '<p class="err">' + esc(e.message || e) + '</p>'; }
 
@@ -215,7 +249,8 @@
           : '<button class="btn sm blue" onclick="setMode(\'human\')">真人接手</button>') + '</div>' +
         '<div class="thread-b" id="threadBody">' + r.messages.map(function (m) {
           if (m.role === 'system' && /^(真人客服接手|切回 AI 客服)$/.test(m.content)) return '<div class="b sys">— ' + esc(m.content) + ' —</div>';
-          return '<div class="b ' + m.role + '"><small>' + label[m.role] + '・' + esc(m.timestamp) + '</small>' + esc(m.content) + '</div>';
+          return '<div class="b ' + m.role + '"><small>' + label[m.role] + '・' + esc(m.timestamp) + '</small>' + esc(m.content) +
+            (m.trace_id ? '<span class="tr-link" onclick="showTrace(\'' + esc(m.trace_id) + '\')">🔍 查看 AI 推理過程</span>' : '') + '</div>';
         }).join('') + '</div>' +
         (r.orders.length ? '<div class="orders-mini"><b>此客人的訂單：</b>' + r.orders.map(function (o) {
           return '<div>' + esc(o.order_id) + '・' + esc(o.status) + '・' + money(o.total) + '</div>'; }).join('') + '</div>' : '') +
@@ -292,6 +327,146 @@
     api('updateProduct', { id: id, changes: changes }).then(function (r) {
       btn.disabled = false; btn.textContent = r.ok ? '已儲存 ✓' : '儲存';
       if (!r.ok) alert(r.error);
+    });
+  }
+
+  // ─── AI 追蹤 ───────────────────────────────────────────────────
+  // 每次 AI 回覆的完整過程：模型看到什麼、每一輪的決定、工具的參數與結果、耗時與 token
+  var traceData = null, currentTrace = null, traceFilter = '';
+  function showTrace(id) { currentTrace = id; go('traces'); }
+  function secs(ms) { return ms >= 1000 ? (ms / 1000).toFixed(1) + 's' : ms + 'ms'; }
+  function shortModel(m) { return String(m || '').split(',').map(function (x) { return x.split('/').pop(); }).join('、'); }
+  function chanPill(c, long) { return '<span class="pill ' + (c === 'telegram' ? 'tg">' + (long ? 'Telegram' : 'TG') : 'web">網頁') + '</span>'; }
+
+  function loadTraces() {
+    api('traces', { limit: 80 }).then(function (r) {
+      if (!r.ok) throw new Error(r.error);
+      traceData = r; renderTraces();
+    }).catch(fail);
+  }
+
+  function renderTraces() {
+    var r = traceData, c = r.config, all = r.traces;
+    var list = all.filter(function (t) {
+      if (!traceFilter) return true;
+      if (traceFilter === 'tool') return t.tools_used.length > 0;
+      if (traceFilter === 'fallback') return t.status !== 'ok';
+      return t.channel === traceFilter;
+    });
+    var n = all.length || 1;
+    var avg = Math.round(all.reduce(function (s, t) { return s + t.total_ms; }, 0) / n);
+    var withTool = all.filter(function (t) { return t.tools_used.length; }).length;
+    var fb = all.filter(function (t) { return t.status !== 'ok'; }).length;
+    var usedBackup = all.filter(function (t) { return c.fallbackModel && t.model.indexOf(c.fallbackModel) >= 0; }).length;
+    var tokens = all.reduce(function (s, t) { return s + t.tokens_in + t.tokens_out; }, 0);
+    var card = function (k, v, hint) { return '<div class="stat"><div class="k">' + k + '</div><div class="v">' + v + '</div>' + (hint ? '<div class="muted">' + hint + '</div>' : '') + '</div>'; };
+    var fbtn = function (k, label) { return '<button class="btn sm ' + (traceFilter === k ? '' : 'ghost') + '" onclick="traceFilter=\'' + k + '\';renderTraces()">' + label + '</button>'; };
+
+    $('main').innerHTML = '<div class="stats">' +
+      card('AI 回覆次數', all.length, '最近的紀錄') +
+      card('平均回應時間', all.length ? secs(avg) : '-', '含所有模型與工具') +
+      card('有呼叫工具', all.length ? Math.round(withTool / n * 100) + '%' : '-', withTool + ' 次') +
+      card('改用備援模型', usedBackup, '主模型失敗時') +
+      card('未能回答', fb, '回固定道歉訊息') +
+      card('Token 用量', tokens.toLocaleString('en-US'), '輸入＋輸出') + '</div>' +
+      '<div class="panel"><div class="cfg"><span>主模型 <span class="chip">' + esc(c.model) + '</span></span>' +
+      '<span>備援 <span class="chip">' + esc(c.fallbackModel) + '</span></span>' +
+      '<span class="muted">temperature <b>' + c.temperature + '</b>・最多 <b>' + c.maxIterations + '</b> 輪・帶入 <b>' + c.historyTurns + '</b> 則歷史</span>' +
+      '<span style="flex:1"></span><button class="btn sm ghost" onclick="toggleAiConfig()">查看 System Prompt 與工具定義</button></div>' +
+      '<div id="aiCfg"></div></div>' +
+      '<div class="filters" style="margin-top:16px">' + fbtn('', '全部') + fbtn('tool', '有叫工具') + fbtn('fallback', '未能回答') +
+      fbtn('telegram', 'Telegram') + fbtn('webchat', '網頁') + '<button class="btn sm ghost" onclick="loadTraces()">↻ 重新整理</button></div>' +
+      '<div class="tgrid"><div class="tlist">' + (list.length ? list.map(function (t) {
+        return '<div class="titem' + (t.trace_id === currentTrace ? ' on' : '') + '" data-id="' + esc(t.trace_id) + '" onclick="openTrace(\'' + esc(t.trace_id) + '\')">' +
+          '<div class="meta">' + chanPill(t.channel) + esc(t.timestamp) +
+          (t.status !== 'ok' ? '<span class="pill bad">未能回答</span>' : '') + '</div>' +
+          '<div class="q">' + esc(t.user_text) + '</div>' +
+          '<div class="meta">' + secs(t.total_ms) + '・' + t.llm_calls + ' 次 LLM' +
+          t.tools_used.map(function (x) { return ' <span class="chip">' + esc(x) + '</span>'; }).join('') + '</div></div>';
+      }).join('') : '<p class="muted" style="padding:14px">還沒有 AI 回覆紀錄。到商店頁或 Telegram 問 AI 一個問題，這裡就會出現。</p>') +
+      '</div><div class="tdetail" id="tdetail"><div class="muted">選擇左側一筆，查看 AI 這次看到什麼、怎麼決定、叫了哪些工具。</div></div></div>';
+    if (currentTrace) openTrace(currentTrace);
+  }
+
+  function toggleAiConfig() {
+    var box = $('aiCfg');
+    if (box.innerHTML) { box.innerHTML = ''; return; }
+    box.innerHTML = '<p class="muted">載入中…</p>';
+    api('aiConfig').then(function (r) {
+      if (!r.ok) throw new Error(r.error);
+      box.innerHTML = '<div class="cfgbox">' +
+        '<b>System Prompt（網頁版）</b><pre>' + esc(r.prompts.web) + '</pre>' +
+        '<details><summary>Telegram 版</summary><pre>' + esc(r.prompts.telegram) + '</pre></details>' +
+        '<div style="margin-top:12px"><b>AI 可以使用的工具（' + r.tools.length + '）</b></div>' +
+        r.tools.map(function (t) {
+          return '<div style="margin-top:8px"><span class="chip">' + esc(t.name) + '</span> ' + esc(t.description) +
+            '<details><summary>參數定義</summary><pre>' + esc(JSON.stringify(t.parameters, null, 2)) + '</pre></details></div>';
+        }).join('') +
+        '<p class="muted">工具拿到的客人身分（session）由系統注入，模型無法冒用別人查單或取消；下單時伺服器會再比對書名與編號。</p></div>';
+    }).catch(function (e) { box.innerHTML = '<p class="err">' + esc(e.message) + '</p>'; });
+  }
+
+  function prettyJson(s) {
+    if (typeof s !== 'string') return JSON.stringify(s, null, 2);
+    try { return JSON.stringify(JSON.parse(s), null, 2); } catch (e) { return s; }
+  }
+
+  function traceStep(ic, head, body) {
+    return '<div class="step"><div class="ic">' + ic + '</div><div class="h">' + head + '</div>' + (body ? '<div class="body">' + body + '</div>' : '') + '</div>';
+  }
+
+  function renderStep(t, s) {
+    if (s.type === 'input') {
+      return traceStep('📥', '輸入 <span class="muted">模型這次看到的內容</span>',
+        '<div class="quote">' + esc(t.user_text) + '</div>' +
+        '<div class="muted" style="margin-top:6px">System prompt ' + s.system_prompt_chars + ' 字・帶入歷史 ' + s.history.length + ' 則・可用工具 ' + s.tools.length + ' 個</div>' +
+        (s.history.length ? '<details><summary>展開帶入的歷史對話</summary><pre>' +
+          esc(s.history.map(function (m) { return (m.role === 'user' ? '客人：' : '客服：') + m.content; }).join('\n')) + '</pre></details>' : ''));
+    }
+    if (s.type === 'llm') {
+      var tok = s.usage ? (s.usage.prompt_tokens || 0) + ' → ' + (s.usage.completion_tokens || 0) + ' tokens' : '';
+      var att = (s.attempts.length > 1 || s.attempts.some(function (a) { return !a.ok; }))
+        ? '<div style="margin-top:4px">' + s.attempts.map(function (a) {
+            return '<div class="attempt' + (a.ok ? '' : ' fail') + '">' + (a.ok ? '✓ ' : '✗ ') + esc(shortModel(a.model)) + '・' +
+              (a.status || '連線失敗') + '・' + secs(a.ms) + (a.reason ? '・' + esc(a.reason) : '') + '</div>';
+          }).join('') + '</div>' : '';
+      var decision;
+      if (s.failed) decision = '<span class="pill bad">這一輪所有模型都失敗</span>';
+      else if (s.tool_calls && s.tool_calls.length) {
+        decision = '決定呼叫工具：' + s.tool_calls.map(function (x) { return '<span class="chip">' + esc(x.name) + '</span>'; }).join(' ') +
+          (s.content ? '<div class="muted">（附帶文字：' + esc(s.content) + '）</div>' : '');
+      } else {
+        decision = '產出回覆文字' + (s.with_tools ? '' : '<span class="muted">（最後一輪不提供工具，強制收斂）</span>');
+      }
+      return traceStep('🧠', '第 ' + s.turn + ' 輪・模型推理' + (s.model ? ' <span class="chip">' + esc(shortModel(s.model)) + '</span>' : '') +
+        '<span class="muted">' + secs(s.ms) + (tok ? '・' + tok : '') + (s.finish ? '・' + esc(s.finish) : '') + '</span>', decision + att);
+    }
+    if (s.type === 'tool') {
+      return traceStep('🔧', '工具 <span class="chip">' + esc(s.name) + '</span><span class="pill ' + (s.ok ? 'ok">成功' : 'bad">失敗') + '</span><span class="muted">' + secs(s.ms) + '</span>',
+        '參數<pre>' + esc(JSON.stringify(s.args, null, 2)) + '</pre><details><summary>工具回傳給模型的資料</summary><pre>' + esc(prettyJson(s.result)) + '</pre></details>');
+    }
+    if (s.type === 'note') return traceStep('⚠️', esc(s.text));
+    if (s.type === 'output') {
+      return traceStep('📤', '回覆客人 <span class="pill ' + (s.status === 'ok' ? 'ok">正常' : 'bad">固定道歉訊息') + '</span>', '<div class="quote">' + esc(s.reply) + '</div>');
+    }
+    return '';
+  }
+
+  function openTrace(id) {
+    currentTrace = id;
+    document.querySelectorAll('.titem').forEach(function (el) { el.classList.toggle('on', el.dataset.id === id); });
+    if (!$('tdetail')) return;
+    $('tdetail').innerHTML = '<p class="muted">載入中…</p>';
+    api('trace', { traceId: id }).then(function (r) {
+      if (!$('tdetail') || currentTrace !== id) return;
+      if (!r.ok) { $('tdetail').innerHTML = '<p class="err">' + esc(r.error) + '</p>'; return; }
+      var t = r.trace;
+      $('tdetail').innerHTML = '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' + chanPill(t.channel, true) +
+        '<b>' + esc(t.timestamp) + '</b><span class="muted">總耗時 ' + secs(t.total_ms) + '・LLM ' + t.llm_calls + ' 次・' +
+        (t.tokens_in + t.tokens_out).toLocaleString('en-US') + ' tokens</span><span style="flex:1"></span>' +
+        '<button class="btn sm ghost" onclick="currentSession=\'' + esc(t.session_id) + '\';go(\'chat\')">看完整對話 →</button></div>' +
+        '<div class="muted" style="font-size:12px;margin-top:4px">' + esc(t.session_id) + '・' + esc(t.trace_id) + '</div>' +
+        '<div class="steps">' + t.steps.map(function (s) { return renderStep(t, s); }).join('') + '</div>';
     });
   }
 

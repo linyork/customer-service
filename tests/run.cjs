@@ -499,7 +499,7 @@ test('網頁訪客 ID 格式不對會被擋下', () => {
 
 test('後台：沒登入一律 AUTH；密碼錯誤拒絕；登入後可用', () => {
   const g = fresh();
-  ['dashboard', 'sessions', 'orders', 'products', 'reply', 'setOrderStatus', 'updateProduct'].forEach(a => {
+  ['dashboard', 'sessions', 'orders', 'products', 'reply', 'setOrderStatus', 'updateProduct', 'traces', 'trace', 'aiConfig'].forEach(a => {
     assert.strictEqual(post(g, { source: 'web', action: a }).error, 'AUTH', a);
     assert.strictEqual(post(g, { source: 'web', action: a, token: 'forged' }).error, 'AUTH', a);
   });
@@ -609,6 +609,146 @@ test('ShopPage／AdminPage 的 <script> 語法正確', () => {
       new vm.Script(js, { filename: f });
     });
   });
+});
+
+// ─── AI 追蹤（後台可查驗 AI 的每一步）────────────────────────────
+
+const withUsage = (r, pin, pout) => ({
+  body: { choices: [{ message: r.message, finish_reason: r.message.tool_calls ? 'tool_calls' : 'stop' }], usage: { prompt_tokens: pin, completion_tokens: pout } }
+});
+const plain = (x) => JSON.parse(JSON.stringify(x)); // vm 裡的陣列原型不同，deepStrictEqual 前先轉成一般物件
+const adminToken = (g) => post(g, { source: 'web', action: 'login', password: 'secret' }).token;
+
+test('AI 追蹤：每次回覆留一筆完整紀錄（輸入 → 模型決定 → 工具 → 回覆），chat 帶 trace_id', () => {
+  const g = fresh();
+  g.__http.nvidiaQueue.push(withUsage(toolCall('search_products', { keyword: '推理' }), 900, 30));
+  g.__http.nvidiaQueue.push(withUsage(text('有兩本推理小說。'), 1200, 15));
+  g.ChatBot.handle('WEB:trace0001', '有推理小說嗎', '訪客');
+
+  const traces = rows(g, 'ai_trace');
+  assert.strictEqual(traces.length, 1);
+  const t = traces[0];
+  assert.strictEqual(t.status, 'ok');
+  assert.strictEqual(t.channel, 'webchat');
+  assert.strictEqual(t.user_text, '有推理小說嗎');
+  assert.strictEqual(t.llm_calls, 2);
+  assert.strictEqual(t.tools_used, 'search_products');
+  assert.strictEqual(t.tokens_in, 2100);
+  assert.strictEqual(t.tokens_out, 45);
+  assert.strictEqual(t.model, g.Config.NVIDIA_MODEL);
+
+  const assistant = rows(g, 'chat').find(r => r.role === 'assistant');
+  assert.strictEqual(assistant.trace_id, t.trace_id, 'AI 訊息要能連回這次的推理');
+  assert.strictEqual(rows(g, 'chat').find(r => r.role === 'user').trace_id, '', '客人訊息不帶 trace_id');
+
+  const token = adminToken(g);
+  const list = post(g, { source: 'web', action: 'traces', token });
+  assert.ok(list.ok);
+  assert.strictEqual(list.traces[0].trace_id, t.trace_id);
+  assert.deepStrictEqual(plain(list.traces[0].tools_used), ['search_products']);
+  assert.strictEqual(list.traces[0].steps, undefined, '列表不帶 steps，避免太大');
+  assert.strictEqual(list.config.model, g.Config.NVIDIA_MODEL);
+
+  const detail = post(g, { source: 'web', action: 'trace', token, traceId: t.trace_id }).trace;
+  assert.deepStrictEqual(plain(detail.steps.map(s => s.type)), ['input', 'llm', 'tool', 'llm', 'output']);
+  const [input, llm1, tool, llm2, output] = detail.steps;
+  assert.ok(input.system_prompt_chars > 100);
+  assert.ok(input.tools.indexOf('create_order') >= 0);
+  assert.deepStrictEqual(plain(llm1.tool_calls.map(c => c.name)), ['search_products']);
+  assert.strictEqual(llm1.with_tools, true);
+  assert.deepStrictEqual(plain(tool.args), { keyword: '推理' });
+  assert.strictEqual(tool.ok, true);
+  assert.strictEqual(JSON.parse(tool.result).count, 2, '工具回傳給模型的資料要原樣留下');
+  assert.strictEqual(llm2.content, '有兩本推理小說。');
+  assert.strictEqual(output.reply, '有兩本推理小說。');
+
+  const msgs = post(g, { source: 'web', action: 'messages', token, sessionId: 'WEB:trace0001' }).messages;
+  assert.strictEqual(msgs.find(m => m.role === 'assistant').trace_id, t.trace_id);
+});
+
+test('AI 追蹤：歷史對話有記進輸入，可看出模型這次看到什麼', () => {
+  const g = fresh();
+  g.__http.nvidiaQueue.push(text('您好！'));
+  g.ChatBot.handle('WEB:trace0002', '哈囉', '');
+  g.__http.nvidiaQueue.push(text('好的'));
+  g.ChatBot.handle('WEB:trace0002', '我想買書', '');
+  const t = g.AiTrace.get(rows(g, 'ai_trace')[1].trace_id);
+  assert.deepStrictEqual(plain(t.steps[0].history.map(m => m.role + ':' + m.content)), ['user:哈囉', 'assistant:您好！']);
+});
+
+test('AI 追蹤：主模型失敗改用備援時，每次嘗試（狀態碼、模型）都看得到', () => {
+  const g = fresh();
+  g.__http.nvidiaQueue.push({ code: 404, body: {} });
+  g.__http.nvidiaQueue.push(text('備援回答'));
+  g.ChatBot.handle('WEB:trace0003', '在嗎', '');
+  const t = g.AiTrace.get(rows(g, 'ai_trace')[0].trace_id);
+  const llm = t.steps.find(s => s.type === 'llm');
+  assert.deepStrictEqual(plain(llm.attempts.map(a => [a.model, a.status, a.ok])), [
+    [g.Config.NVIDIA_MODEL, 404, false],
+    [g.Config.NVIDIA_FALLBACK_MODEL, 200, true]
+  ]);
+  assert.strictEqual(llm.model, g.Config.NVIDIA_FALLBACK_MODEL);
+  assert.strictEqual(t.model, g.Config.NVIDIA_FALLBACK_MODEL);
+});
+
+test('AI 追蹤：503 重試也記成兩次嘗試', () => {
+  const g = fresh();
+  g.__http.nvidiaQueue.push({ code: 503, body: {} });
+  g.__http.nvidiaQueue.push(text('ok'));
+  g.ChatBot.handle('WEB:trace0004', '在嗎', '');
+  const llm = g.AiTrace.get(rows(g, 'ai_trace')[0].trace_id).steps.find(s => s.type === 'llm');
+  assert.deepStrictEqual(plain(llm.attempts.map(a => a.status)), [503, 200]);
+});
+
+test('AI 追蹤：模型全部失敗時狀態是 fallback，紀錄照樣留下', () => {
+  const g = fresh();
+  g.__http.nvidiaQueue.push({ code: 400, body: {} });
+  g.__http.nvidiaQueue.push({ code: 400, body: {} });
+  const reply = g.ChatBot.handle('WEB:trace0005', '在嗎', '');
+  assert.match(reply, /系統忙碌/);
+  const t = rows(g, 'ai_trace')[0];
+  assert.strictEqual(t.status, 'fallback');
+  const steps = g.AiTrace.get(t.trace_id).steps;
+  assert.strictEqual(steps.find(s => s.type === 'llm').failed, true);
+  assert.strictEqual(steps[steps.length - 1].status, 'fallback');
+});
+
+test('AI 追蹤：ai_trace 分頁不存在時客服照常回覆（紀錄不能拖垮客服）', () => {
+  const g = fresh();
+  const ss = g.__spreadsheets[g.__props.SHEET_ID];
+  ss.deleteSheet(ss.getSheetByName('ai_trace'));
+  g.__http.nvidiaQueue.push(text('照常回覆'));
+  assert.strictEqual(g.ChatBot.handle('WEB:trace0006', '在嗎', ''), '照常回覆');
+  assert.strictEqual(rows(g, 'chat').find(r => r.role === 'assistant').content, '照常回覆');
+});
+
+test('AI 追蹤：斜線指令與真人模式不呼叫 AI，也不留紀錄', () => {
+  const g = fresh();
+  g.ChatBot.handle('WEB:trace0007', '/books', '');
+  g.ChatBot.handle('WEB:trace0007', '/human', '');
+  g.ChatBot.handle('WEB:trace0007', '我要找真人', '');
+  assert.strictEqual(rows(g, 'ai_trace').length, 0);
+});
+
+test('AI 追蹤：後台可看 system prompt 與工具定義；查無紀錄回錯誤', () => {
+  const g = fresh();
+  const token = adminToken(g);
+  const cfg = post(g, { source: 'web', action: 'aiConfig', token });
+  assert.ok(cfg.ok);
+  assert.match(cfg.prompts.web, new RegExp(g.Config.SHOP_NAME));
+  assert.deepStrictEqual(plain(cfg.tools.map(t => t.name)), plain(g.Tools.definitions().map(t => t.function.name)));
+  assert.strictEqual(post(g, { source: 'web', action: 'trace', token, traceId: 'Tnope' }).ok, false);
+});
+
+test('AI 追蹤：dailyCleanUp 刪掉過期紀錄', () => {
+  const g = fresh();
+  g.DB.insert('ai_trace', { trace_id: 'Told', timestamp: '2020/01/01 00:00:00', status: 'ok', steps: '[]' });
+  g.__http.nvidiaQueue.push(text('新的'));
+  g.ChatBot.handle('WEB:trace0008', '在嗎', '');
+  g.dailyCleanUp();
+  const left = rows(g, 'ai_trace');
+  assert.strictEqual(left.length, 1);
+  assert.notStrictEqual(left[0].trace_id, 'Told');
 });
 
 // ─── 執行 ───────────────────────────────────────────────────────

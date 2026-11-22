@@ -56,6 +56,7 @@ var Config = (() => {
     TOOL_MAX_ITERATIONS: 5,     // ReAct 迴圈上限（最後一輪不帶工具）
     CHAT_CLEANUP_DAYS: 60,
     LOG_CLEANUP_DAYS: 14,
+    TRACE_CLEANUP_DAYS: 30,   // ai_trace（後台 AI 追蹤）保留天數
 
     // 頻率限制：同一個客人 RATE_WINDOW_SEC 秒內最多 RATE_MAX_MSGS 則
     RATE_WINDOW_SEC: 600,

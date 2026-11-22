@@ -34,8 +34,12 @@ var NvidiaService = (() => {
     return payload;
   };
 
-  /** 單一模型的呼叫（含重試）。成功回 { message, finish_reason, model }，失敗回 null */
+  /**
+   * 單一模型的呼叫（含重試）。成功回 { message, finish_reason, model, usage }，失敗回 null
+   * options.trace（陣列）有給的話，每次 HTTP 嘗試都記一筆，給 AiTrace 用
+   */
   var callModel = (model, messages, options) => {
+    var record = (o) => { if (options.trace) options.trace.push(Object.assign({ model: model }, o)); };
     var fetchOptions = {
       method: 'post',
       contentType: 'application/json',
@@ -47,24 +51,28 @@ var NvidiaService = (() => {
     for (var attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       var started = Date.now();
       var reason = '';
+      var code = 0;
       try {
         var res = UrlFetchApp.fetch(Config.NVIDIA_API_BASE + '/chat/completions', fetchOptions);
-        var code = res.getResponseCode();
+        code = res.getResponseCode();
         if (code === 200) {
           var body = Utils.parseJson(res.getContentText('UTF-8'));
           var choice = body && body.choices && body.choices[0];
           if (!choice || !choice.message) {
             Logger.error('NvidiaService', '回應缺少 choices', res.getContentText().slice(0, 300));
+            record({ ok: false, status: 200, ms: Date.now() - started, reason: '回應缺少 choices' });
             return null;
           }
+          record({ ok: true, status: 200, ms: Date.now() - started });
           Logger.ai('NvidiaService', '模型回應', {
             model: model, finish: choice.finish_reason, usage: body.usage || null,
             ms: Date.now() - started, tools: (choice.message.tool_calls || []).length
           });
-          return { message: choice.message, finish_reason: choice.finish_reason, model: model };
+          return { message: choice.message, finish_reason: choice.finish_reason, model: model, usage: body.usage || null };
         }
         // 4xx（429 除外）是請求本身的問題，重試沒用
         if (code !== 429 && code < 500) {
+          record({ ok: false, status: code, ms: Date.now() - started, reason: 'HTTP ' + code + '（不重試）' });
           Logger.error('NvidiaService', 'HTTP ' + code + '（不重試）', model + ' | ' + res.getContentText().slice(0, 300));
           return null;
         }
@@ -72,6 +80,7 @@ var NvidiaService = (() => {
       } catch (ex) {
         reason = '連線例外：' + ex;
       }
+      record({ ok: false, status: code || 0, ms: Date.now() - started, reason: reason });
 
       if (attempt === MAX_ATTEMPTS) break;
       var waitMs = 2000 * Math.pow(2, attempt - 1);
@@ -90,7 +99,7 @@ var NvidiaService = (() => {
   /**
    * 對話補全
    * @param {Array} messages - OpenAI 格式 [{role, content, tool_calls?, tool_call_id?}]
-   * @param {object} options - { tools?, temperature?, maxTokens? }
+   * @param {object} options - { tools?, temperature?, maxTokens?, trace? }
    * @returns {{message:object, finish_reason:string, model:string}|null}
    */
   svc.chat = (messages, options) => {
