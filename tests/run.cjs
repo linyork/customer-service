@@ -432,6 +432,23 @@ test('網頁下單 → 我的訂單 → 查單 → 對話框問 AI', () => {
   assert.strictEqual(post(g, { source: 'web', action: 'chatHistory', visitorId: vid }).messages.length, 2);
 });
 
+test('同一個 requestId 重送：下單只成立一張、對話只處理一次', () => {
+  const g = fresh();
+  const req = { source: 'web', action: 'createOrder', requestId: 'req_abc12345', visitorId: 'visitorDup001',
+    items: [{ product_id: 'B001', qty: 1 }], customer_name: '陳', phone: '0922333444', address: '台中', payment: '轉帳' };
+  const a = post(g, req);
+  const b = post(g, req);
+  assert.ok(a.ok);
+  assert.strictEqual(b.order.order_id, a.order.order_id);
+  assert.strictEqual(rows(g, 'orders').length, 1);
+
+  g.__http.nvidiaQueue.push(text('回覆一次'));
+  const chat = { source: 'web', action: 'chat', requestId: 'req_chat0001', visitorId: 'visitorDup001', text: '你好' };
+  assert.strictEqual(post(g, chat).reply, '回覆一次');
+  assert.strictEqual(post(g, chat).reply, '回覆一次'); // 沒排第二個 NVIDIA 回應，重跑的話會丟錯
+  assert.strictEqual(rows(g, 'chat').length, 2);
+});
+
 test('網頁訪客 ID 格式不對會被擋下', () => {
   const g = fresh();
   const r = post(g, { source: 'web', action: 'chat', visitorId: '../../x', text: 'hi' });

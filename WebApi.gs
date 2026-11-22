@@ -160,8 +160,33 @@ var WebApi = (() => {
    * 統一處理入口
    * @param {object} body - { action, token?, ... }
    */
+  // 會改資料的動作要冪等：同一個 requestId 重送時直接回第一次的結果。
+  // 2026/11/22 驗收踩到：fetch 等太久報錯 → 前端改走 google.script.run 重送 → 同一則訊息寫兩次。
+  // 下單若重送就是兩張訂單，所以伺服器端也要擋，不能只靠前端。
+  var IDEMPOTENT = { createOrder: true, chat: true };
+  var REQ_ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
+
   api.handle = (body) => {
     var action = String(body && body.action || '');
+    var cacheKey = (IDEMPOTENT[action] && REQ_ID_RE.test(String(body.requestId || ''))) ? 'req_' + body.requestId : null;
+    if (cacheKey) {
+      var cache = CacheService.getScriptCache();
+      var lock = LockService.getScriptLock();
+      lock.waitLock(20000);
+      try {
+        var prev = cache.get(cacheKey);
+        if (prev === 'PENDING') return { ok: false, error: '上一個請求還在處理中，請稍候' };
+        if (prev) return JSON.parse(prev);
+        cache.put(cacheKey, 'PENDING', 600);
+      } finally { lock.releaseLock(); }
+      var result = api.dispatch_(action, body);
+      try { cache.put(cacheKey, JSON.stringify(result), 600); } catch (e) { cache.put(cacheKey, '{"ok":false,"error":"重複的請求"}', 600); }
+      return result;
+    }
+    return api.dispatch_(action, body);
+  };
+
+  api.dispatch_ = (action, body) => {
     try {
       if (action === 'login') return api.login(body.password);
       if (publicActions.hasOwnProperty(action)) return publicActions[action](body);

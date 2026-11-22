@@ -92,17 +92,26 @@
   var API_URL = <?!= JSON.stringify(apiUrl) ?>;
   var SHOP = <?!= JSON.stringify(shopName) ?>;
 
+  // 走哪條路只決定一次；fetch 成功過之後的失敗不換路重送（見 ShopPage 的說明）
+  var transport = null;
+  function viaGsr(body) {
+    return new Promise(function (resolve, reject) {
+      if (!(window.google && google.script && google.script.run)) return reject(new Error('無法連線'));
+      google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).webApi(body);
+    });
+  }
   function api(action, data) {
     var body = Object.assign({ source: 'web', action: action, token: token }, data || {});
-    return fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
-      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .catch(function () {
-        return new Promise(function (resolve, reject) {
-          if (!(window.google && google.script && google.script.run)) return reject(new Error('無法連線'));
-          google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).webApi(body);
+    var p = transport === 'gsr' ? viaGsr(body)
+      : fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (j) { transport = 'fetch'; return j; })
+        .catch(function (e) {
+          if (transport === 'fetch') throw new Error('連線逾時或中斷，請重新整理確認結果');
+          transport = 'gsr';
+          return viaGsr(body);
         });
-      })
-      .then(function (r) {
+    return p.then(function (r) {
         if (r && !r.ok && r.error === 'AUTH') { logout(); throw new Error('登入逾時，請重新登入'); }
         return r;
       });
