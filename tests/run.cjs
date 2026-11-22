@@ -300,7 +300,7 @@ test('模型可用 Script Property 覆寫', () => {
 });
 
 test('NvidiaService：清掉 <think> 區塊；gemma 不送 tool_choice、gpt-oss 備援送 reasoning_effort', () => {
-  const g = fresh({ NVIDIA_FALLBACK_MODEL: 'openai/gpt-oss-20b' });
+  const g = fresh({ NVIDIA_MODEL: 'google/gemma-4-31b-it', NVIDIA_FALLBACK_MODEL: 'openai/gpt-oss-20b' });
   let p1 = null;
   g.__http.nvidiaQueue.push(p => { p1 = p; return text('<think>想一下</think>答案'); });
   const r = g.NvidiaService.chat([{ role: 'user', content: 'hi' }], { tools: g.Tools.definitions() });

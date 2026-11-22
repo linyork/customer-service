@@ -119,12 +119,13 @@ function testNvidia() {
  * 換主模型或備援前先跑這支。模型目錄：curl https://integrate.api.nvidia.com/v1/models
  */
 function testNimCandidates() {
+  // 慢的放最後：gemma-4 實測 270 秒，放前面會把 6 分鐘執行上限吃光、後面的都測不到
   var candidates = [
-    'google/gemma-4-31b-it',
     'nvidia/nemotron-3.5-lightning-30b-a3b',
     'mistralai/mistral-large-4-1t-a52b',
-    'google/gemma-3-12b-it',
-    'z-ai/glm-5.3-flash'
+    'z-ai/glm-5.3-flash',
+    'nvidia/nemotron-3-ultra-550b-a55b',
+    'google/gemma-4-31b-it'
   ];
   var messages = [
     { role: 'system', content: Prompt.system('telegram') },
