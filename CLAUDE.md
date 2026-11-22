@@ -27,3 +27,11 @@ AI 線上客服 Demo（虛構書店「拾頁書店」），純 Google Apps Scrip
 - 網頁 API 走 `doPost`（`source:'web'`），fetch 失敗時前端自動改用 `google.script.run.webApi`，兩條路進同一個 `WebApi.handle`。
 - 改了行為就補測試（`tests/run.cjs`）；用到新的 GAS API 要在 `tests/gas-mock.cjs` 補模擬。
 - 日誌用 `Logger.info/warning/error/ai`，寫進 `console.log` 分頁。
+
+## 踩過的坑（2026/11/22 驗收）
+
+- **Telegram 路徑的 doPost 不可回 ContentService**：`/exec` 會把它包成 302，Telegram 不跟轉址、一直重送，`max_connections=1` 下還會卡住後面所有訊息。什麼都不回才會是 200。
+- **Sheet 會自動轉型**：`'0900…'` 變數字（電話掉 0）、日期字串變 Date。所以 `DB` 寫入一律加前導 `'`、讀取把 Date 轉回字串；`tests/gas-mock.cjs` 也模擬了這個轉型，不要拿掉。
+- **網頁請求不可換路重送**：fetch 成功過之後的失敗不能改走 `google.script.run` 重送（請求可能已到伺服器）；`createOrder`／`chat` 另有 `requestId` 冪等保護。
+- **LLM 歷史只有文字、沒有上一輪工具結果**：模型會猜書籍編號。`create_order` 因此要求品項附書名、由 `Tools.checkItemTitles` 比對，這道伺服器端檢查不可省。
+- **模型選擇**：`gemma-4-31b-it`（iris 用的）當天單次 150–270 秒，不適合即時客服；現用 `nemotron-3.5-lightning`（約 0.5–8 秒）、備援 `mistral-large-4`。換模型先跑 `DevTools.testNimCandidates`，用 Script Property 切換不必部署。
