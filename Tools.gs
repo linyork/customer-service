@@ -41,10 +41,11 @@ var Tools = (() => {
           items: {
             type: 'object',
             properties: {
-              product_id: { type: 'string', description: '書籍編號' },
+              product_id: { type: 'string', description: '書籍編號，必須來自 search_products / get_product 的結果' },
+              title:      { type: 'string', description: '書名（系統會比對編號與書名是否一致）' },
               qty:        { type: 'integer', description: '數量' }
             },
-            required: ['product_id', 'qty']
+            required: ['product_id', 'title', 'qty']
           }
         },
         customer_name: { type: 'string', description: '收件人姓名' },
@@ -87,6 +88,28 @@ var Tools = (() => {
     shipping: o.shipping, total: o.total
   });
 
+  var normTitle = (s) => String(s || '').replace(/[《》〈〉「」『』\s]/g, '').toLowerCase();
+
+  /**
+   * 檢查每個品項的編號與書名是否對得上；對不上回錯誤訊息，全部正確回 null
+   */
+  tools.checkItemTitles = (items) => {
+    if (!Array.isArray(items) || !items.length) return null; // 交給 Store 回「購物車是空的」
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i] || {};
+      var p = Store.getProduct(it.product_id);
+      var want = normTitle(it.title);
+      if (!want) return '品項缺少書名，請附上書名讓系統核對編號';
+      var have = p ? normTitle(p.title) : '';
+      // 容忍客人／模型少打或多打幾個字（「演算法」對「演算法之心」），但兩邊互不包含就是不同本書
+      if (!p || (have.indexOf(want) < 0 && want.indexOf(have) < 0)) {
+        return '書籍編號與書名不符：' + it.product_id + (p ? ' 是《' + p.title + '》' : ' 不存在') +
+          '，不是《' + it.title + '》。請先用 search_products 查出正確編號再下單，並且不要告訴客人已下單。';
+      }
+    }
+    return null;
+  };
+
   /**
    * 執行工具
    * @param {string} name
@@ -112,6 +135,10 @@ var Tools = (() => {
           return { ok: true, product: slimProduct(p) };
         }
         case 'create_order': {
+          // 編號與書名必須一致才下單。2026/11/22 驗收：歷史只帶文字、不帶上一輪的工具結果，
+          // 模型下單時不知道「星海拓荒者＝B005」，就猜了 B001，訂出別本書。
+          var mismatch = tools.checkItemTitles(args.items);
+          if (mismatch) return { ok: false, error: mismatch };
           var r = Store.createOrder({
             items: args.items, customer_name: args.customer_name, phone: args.phone,
             address: args.address, payment: args.payment, note: args.note,

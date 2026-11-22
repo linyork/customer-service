@@ -222,13 +222,46 @@ test('search_products 把分類名當關鍵字也找得到', () => {
 test('create_order 工具的 session 由系統注入，模型給的參數蓋不掉', () => {
   const g = fresh();
   const r = g.Tools.execute('create_order', {
-    items: [{ product_id: 'B003', qty: 1 }], customer_name: '林', phone: '0911222333',
+    items: [{ product_id: 'B003', title: '午後的貓與咖啡', qty: 1 }], customer_name: '林', phone: '0911222333',
     address: '高雄', payment: '貨到付款', session_id: 'WEB:hacker', channel: 'web'
   }, { sessionId: 'TG:42', channel: 'telegram' });
   assert.ok(r.ok, r.error);
   const o = rows(g, 'orders')[0];
   assert.strictEqual(o.session_id, 'TG:42');
   assert.strictEqual(o.channel, 'telegram');
+});
+
+test('create_order：編號與書名不符就拒絕，不會訂出別本書（2026/11/22 實際發生過）', () => {
+  const g = fresh();
+  const ctx = { sessionId: 'TG:42', channel: 'telegram' };
+  const base = { customer_name: '江', phone: '0900111222', address: '北投', payment: '貨到付款' };
+  const wrong = g.Tools.execute('create_order', Object.assign({ items: [{ product_id: 'B001', title: '星海拓荒者', qty: 1 }] }, base), ctx);
+  assert.strictEqual(wrong.ok, false);
+  assert.match(wrong.error, /B001 是《霧港謀殺案》/);
+  const noTitle = g.Tools.execute('create_order', Object.assign({ items: [{ product_id: 'B005', qty: 1 }] }, base), ctx);
+  assert.strictEqual(noTitle.ok, false);
+  const ghost = g.Tools.execute('create_order', Object.assign({ items: [{ product_id: 'B999', title: '不存在', qty: 1 }] }, base), ctx);
+  assert.strictEqual(ghost.ok, false);
+  assert.strictEqual(rows(g, 'orders').length, 0, '以上都不該成立訂單');
+  // 書名帶書名號、少打幾個字都可以
+  const ok1 = g.Tools.execute('create_order', Object.assign({ items: [{ product_id: 'B005', title: '《星海拓荒者》', qty: 1 }] }, base), ctx);
+  assert.ok(ok1.ok, ok1.error);
+  const ok2 = g.Tools.execute('create_order', Object.assign({ items: [{ product_id: 'B006', title: '演算法', qty: 1 }] }, base), ctx);
+  assert.ok(ok2.ok, ok2.error);
+});
+
+test('店家通知都有【店家通知】開頭；客人就是通知頻道本人時，真人模式訊息不重複轉給自己', () => {
+  const g = fresh({ ADMIN_CHAT_ID: '968' });
+  g.ChatBot.handle('TG:968', '/human', '老闆自己');
+  g.__http.telegram.length = 0;
+  g.ChatBot.handle('TG:968', '確認一下那本書取消了嗎', '老闆自己');
+  assert.strictEqual(g.__http.telegram.length, 0, '不該把自己的話轉回給自己');
+
+  g.ChatBot.handle('TG:123', '/human', '別的客人');
+  g.ChatBot.handle('TG:123', '我的書破了', '別的客人');
+  const toAdmin = g.__http.telegram.filter(t => t.payload.chat_id === '968').map(t => t.payload.text);
+  assert.ok(toAdmin.length >= 2);
+  toAdmin.forEach(t => assert.ok(t.startsWith('【店家通知】'), t));
 });
 
 // ─── ChatBot ────────────────────────────────────────────────────
